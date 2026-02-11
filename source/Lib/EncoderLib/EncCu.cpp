@@ -60,6 +60,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "CommonLib/TimeProfiler.h"
 #include "CommonLib/SearchSpaceCounter.h"
 
+#include "CommonLib/MLFeaturesManager.h"
+
 #include <mutex>
 #include <cmath>
 #include <algorithm>
@@ -970,6 +972,10 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
         }
       }
     } //boundary
+
+#if ENABLE_FEATURES_EXTRACTION
+    // Point to exctract features
+#endif
 
     if( ( m_pcEncCfg->m_IntraPeriod == 1 ) && ( partitioner.chType == CH_C ) )
     {
