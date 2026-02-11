@@ -103,8 +103,9 @@ int main(int argc, char* argv[])
   std::time_t startTime2 = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   msgApp( VVENC_INFO, "vvencFFapp [info]: started @ %s", std::ctime(&startTime2) );
 
+#if ENABLE_FEATURES_EXTRACTION
   MLFeaturesManager::init();
-  MLFeaturesManager::addFeaturesLine();
+#endif
 
   clock_t startClock = clock();
 
@@ -117,7 +118,9 @@ int main(int argc, char* argv[])
   std::time_t endTime2 = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   auto encTime = std::chrono::duration_cast<std::chrono::milliseconds>( endTime - startTime).count();
 
+#if ENABLE_FEATURES_EXTRACTION
   MLFeaturesManager::finish();
+#endif
 
   delete pcEncApp;
 
