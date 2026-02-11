@@ -55,6 +55,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "vvenc/vvenc.h"
 
+#include "CommonLib/MLFeaturesManager.h"
+
 //! \ingroup EncoderApp
 //! \{
 
@@ -100,6 +102,10 @@ int main(int argc, char* argv[])
   auto startTime  = std::chrono::steady_clock::now();
   std::time_t startTime2 = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   msgApp( VVENC_INFO, "vvencFFapp [info]: started @ %s", std::ctime(&startTime2) );
+
+  MLFeaturesManager::init();
+  MLFeaturesManager::addFeaturesLine();
+
   clock_t startClock = clock();
 
   // call encoding function
@@ -110,6 +116,8 @@ int main(int argc, char* argv[])
   auto endTime = std::chrono::steady_clock::now();
   std::time_t endTime2 = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   auto encTime = std::chrono::duration_cast<std::chrono::milliseconds>( endTime - startTime).count();
+
+  MLFeaturesManager::finish();
 
   delete pcEncApp;
 
