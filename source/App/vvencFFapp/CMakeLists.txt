@@ -1,0 +1,51 @@
+# executable
+set( EXE_NAME vvencFFapp )
+
+# get source files
+file( GLOB SRC_FILES CONFIGURE_DEPENDS "*.cpp" )
+
+# get include files
+file( GLOB INC_FILES CONFIGURE_DEPENDS "*.h" )
+
+# get address sanitizer libs for gcc
+if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
+  if( VVENC_USE_ADDRESS_SANITIZER )
+    set( ADDITIONAL_LIBS asan )
+  endif()
+endif()
+
+# set resource file for MSVC compilers
+if( MSVC )
+  set( RESOURCE_FILE ${EXE_NAME}.rc )
+  file( GLOB NATVIS_FILES CONFIGURE_DEPENDS "../../VisualStudio/*.natvis" )
+  # extend the stack size on windows to 2MB
+  set( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /STACK:0x200000" )
+endif()
+
+# add executable
+add_executable( ${EXE_NAME} ${SRC_FILES} ${INC_FILES} ${RESOURCE_FILE} )
+set_target_properties( ${EXE_NAME} PROPERTIES RELEASE_POSTFIX        "${CMAKE_RELEASE_POSTFIX}" )
+set_target_properties( ${EXE_NAME} PROPERTIES DEBUG_POSTFIX          "${CMAKE_DEBUG_POSTFIX}" )
+set_target_properties( ${EXE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX "${CMAKE_RELWITHDEBINFO_POSTFIX}" )
+set_target_properties( ${EXE_NAME} PROPERTIES MINSIZEREL_POSTFIX     "${CMAKE_MINSIZEREL_POSTFIX}" )
+if( VVENC_LIBRARY_ONLY )
+  set_target_properties( ${EXE_NAME} PROPERTIES EXCLUDE_FROM_ALL TRUE )
+endif()
+
+target_compile_options( ${EXE_NAME} PRIVATE $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wall>
+                                            $<$<CXX_COMPILER_ID:GNU>:-Wall -fdiagnostics-show-option>
+                                            $<$<CXX_COMPILER_ID:MSVC>:/W4 /wd4100 /wd4244 /wd4251 /wd4459 /wd4996>)
+
+target_include_directories( ${EXE_NAME} PRIVATE ../../Lib )
+target_link_libraries( ${EXE_NAME} Threads::Threads vvenc )
+target_include_directories( ${EXE_NAME} PRIVATE $<$<TARGET_EXISTS:nlohmann_json::nlohmann_json>:$<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>> )
+target_compile_options( ${EXE_NAME} PRIVATE $<$<TARGET_EXISTS:nlohmann_json::nlohmann_json>:$<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_COMPILE_OPTIONS>> )
+target_compile_definitions( ${EXE_NAME} PRIVATE $<$<TARGET_EXISTS:nlohmann_json::nlohmann_json>:$<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_COMPILE_DEFINITIONS>> )
+
+# example: place header files in different folders
+source_group( "Header Files"   FILES ${INC_FILES} )
+source_group( "Resource Files" FILES ${RESOURCE_FILE} )
+source_group( "Natvis Files"   FILES ${NATVIS_FILES} )
+
+# set the folder where to place the projects
+set_target_properties( ${EXE_NAME}  PROPERTIES FOLDER app )
