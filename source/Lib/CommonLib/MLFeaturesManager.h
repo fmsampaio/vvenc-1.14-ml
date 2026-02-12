@@ -18,7 +18,7 @@ class MLFeaturesManager {
         static bool isIntra;
 
     public:
-        static void init();
+        static void init(std::string fileName);
         static void finish();
 
         static void addFeaturesLine();

@@ -585,6 +585,8 @@ int parse( int argc, char* argv[], vvenc_config* c, std::ostream& rcOstr )
 
   IStreamToArr<char>                toTraceRule                   ( &c->m_traceRule[0], VVENC_MAX_STRING_LEN  );
   IStreamToArr<char>                toTraceFile                   ( &c->m_traceFile[0], VVENC_MAX_STRING_LEN  );
+  IStreamToArr<char>                toMLFeaturesFile              ( &c->m_mlFeaturesFile[0], VVENC_MAX_STRING_LEN  );
+  
   IStreamToArr<char>                toSummaryOutFilename          ( &c->m_summaryOutFilename[0], VVENC_MAX_STRING_LEN  );
   IStreamToArr<char>                toSummaryPicFilenameBase      ( &c->m_summaryPicFilenameBase[0], VVENC_MAX_STRING_LEN  );
 
@@ -1194,6 +1196,7 @@ int parse( int argc, char* argv[], vvenc_config* c, std::ostream& rcOstr )
     ("tracechannellist",              c->m_listTracingChannels,  "list all available tracing channels")
     ("tracerule",                     toTraceRule,               "tracing rule (ex: \"D_CABAC:poc==8\" or \"D_REC_CB_LUMA:poc==8\")")
     ("tracefile",                     toTraceFile,               "tracing file")
+    ("MLFeaturesFileName",            toMLFeaturesFile,        "machine-learning features output file")
     ;
   }
 

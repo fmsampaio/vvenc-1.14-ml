@@ -103,10 +103,6 @@ int main(int argc, char* argv[])
   std::time_t startTime2 = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   msgApp( VVENC_INFO, "vvencFFapp [info]: started @ %s", std::ctime(&startTime2) );
 
-#if ENABLE_FEATURES_EXTRACTION
-  MLFeaturesManager::init();
-#endif
-
   clock_t startClock = clock();
 
   // call encoding function

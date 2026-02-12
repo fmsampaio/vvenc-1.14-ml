@@ -5,8 +5,8 @@ int MLFeaturesManager::xPos, MLFeaturesManager::yPos, MLFeaturesManager::blockWi
 int MLFeaturesManager::frameWidth, MLFeaturesManager::frameHeight, MLFeaturesManager::framePoc, MLFeaturesManager::frameLevel;
 bool MLFeaturesManager::isIntra;
 
-void MLFeaturesManager::init() {
-    featFp.open("/home/felipe/Projetos/vvenc-1.14-ml/bin/release-static/features.csv");
+void MLFeaturesManager::init(std::string fileName) {
+    featFp.open(fileName);
     featFp << "frame_width;frame_height;frame_poc;frame_level;x_pos;y_pos;block_width;block_height;is_intra" << std::endl;
 }
 

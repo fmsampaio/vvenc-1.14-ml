@@ -57,6 +57,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "PreProcess.h"
 #include "EncGOP.h"
 #include "CommonLib/x86/CommonDefX86.h"
+#include "CommonLib/MLFeaturesManager.h"
 
 //! \ingroup EncoderLib
 //! \{
@@ -111,6 +112,12 @@ void EncLib::initEncoderLib( const vvenc_config& encCfg )
 {
   // copy config parameter
   const_cast<VVEncCfg&>(m_encCfg) = encCfg;
+
+#if ENABLE_FEATURES_EXTRACTION
+  std::string fileName(encCfg.m_mlFeaturesFile);
+  MLFeaturesManager::init(fileName);
+#endif
+  
 
 #if defined( REAL_TARGET_X86 ) && defined( _MSC_VER ) && _MSC_VER >= 1938 && _MSC_VER < 1939
   if( read_x86_extension_flags() >= x86_simd::AVX2 )

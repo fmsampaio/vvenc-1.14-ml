@@ -684,6 +684,7 @@ VVENC_DECL void vvenc_config_default(vvenc_config *c )
   c->m_listTracingChannels                     = false;
   memset( c->m_traceRule, '\0', sizeof(c->m_traceRule) );
   memset( c->m_traceFile, '\0', sizeof(c->m_traceFile) );
+  memset( c->m_mlFeaturesFile, '\0', sizeof(c->m_mlFeaturesFile) );
 
   c->m_numIntraModesFullRD                     = -1;
   c->m_reduceIntraChromaModesFullRD            = false;

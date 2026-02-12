@@ -743,6 +743,8 @@ typedef struct vvenc_config
   char                m_traceRule[VVENC_MAX_STRING_LEN];
   char                m_traceFile[VVENC_MAX_STRING_LEN];
 
+  char                m_mlFeaturesFile[VVENC_MAX_STRING_LEN];
+
   char                m_summaryOutFilename[VVENC_MAX_STRING_LEN];                        // filename to use for producing summary output file.
   char                m_summaryPicFilenameBase[VVENC_MAX_STRING_LEN];                    // Base filename to use for producing summary picture output files. The actual filenames used will have I.txt, P.txt and B.txt appended.
   unsigned            m_summaryVerboseness;                                              // Specifies the level of the verboseness of the text output.
@@ -793,6 +795,8 @@ typedef struct vvenc_config
   bool                m_confirmFailed;                                                   // state variable, Private context used for internal data ( do not change )
   vvencLoggingCallback m_msgFnc;                                                         // logger callback function (internal info/errors will use this function to return log messages)
   void                *m_msgCtx;                                                         // caller context ( if not needed null )
+
+
 
 }vvenc_config;
 
