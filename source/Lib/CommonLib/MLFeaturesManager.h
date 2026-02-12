@@ -4,8 +4,7 @@
 #include "CommonDef.h"
 
 
-#define ENABLE_FEATURES_EXTRACTION 1
-
+#define ENABLE_FEATURES_EXTRACTION 0
 #define AVOID_FRAME_LEVEL_0 1
 
 class MLFeaturesManager {
