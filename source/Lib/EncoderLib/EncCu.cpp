@@ -973,10 +973,6 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
       }
     } //boundary
 
-#if ENABLE_FEATURES_EXTRACTION
-    // Point to exctract features
-#endif
-
     if( ( m_pcEncCfg->m_IntraPeriod == 1 ) && ( partitioner.chType == CH_C ) )
     {
       xCheckFastCuChromaSplitting( tempCS, bestCS, partitioner, *m_modeCtrl.comprCUCtx );
@@ -1099,6 +1095,13 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
   CHECK( bestCS->cus.empty()                                   , "No possible encoding found" );
   CHECK( bestCS->cus[0]->predMode == NUMBER_OF_PREDICTION_MODES, "No possible encoding found" );
   CHECK( bestCS->cost             == MAX_DOUBLE                , "No possible encoding found" );
+
+#if ENABLE_FEATURES_EXTRACTION
+  MLFeaturesManager::collectFrameParameters(slice.pic->Y().width, slice.pic->Y().height, slice.poc, slice.TLayer);
+  MLFeaturesManager::collectBlockParameters(bestCS->cus[0]->lx(), bestCS->cus[0]->ly(), bestCS->cus[0]->lwidth(), bestCS->cus[0]->lheight());
+  MLFeaturesManager::collectPredMode(bestCS->cus[0]->predMode);
+  MLFeaturesManager::addFeaturesLine();
+#endif
 }
 
 

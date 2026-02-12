@@ -1,10 +1,12 @@
 #include <iostream>
 #include <fstream>
 
-#include "TypeDef.h"
+#include "CommonDef.h"
 
 
 #define ENABLE_FEATURES_EXTRACTION 1
+
+#define AVOID_FRAME_LEVEL_0 1
 
 class MLFeaturesManager {
     private:
@@ -12,8 +14,8 @@ class MLFeaturesManager {
 
         // Features list
         static int xPos, yPos, blockWidth, blockHeight;
-
-        static vvenc::PredMode predMode;
+        static int frameWidth, frameHeight, framePoc, frameLevel;
+        static bool isIntra;
 
     public:
         static void init();
@@ -21,6 +23,8 @@ class MLFeaturesManager {
 
         static void addFeaturesLine();
 
+        static void collectFrameParameters(int frameWidth, int frameHeight, int framePoc, int frameLevel);
         static void collectBlockParameters(int xPos, int yPos, int blockWidth, int blockHeight);
+        static void collectPredMode(vvenc::PredMode predMode);
 
 };
