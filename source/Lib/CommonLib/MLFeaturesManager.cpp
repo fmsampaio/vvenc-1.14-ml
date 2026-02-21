@@ -1,54 +1,60 @@
 #include "MLFeaturesManager.h"
 
 std::ofstream MLFeaturesManager::featFp;
-int MLFeaturesManager::xPos, MLFeaturesManager::yPos, MLFeaturesManager::blockWidth, MLFeaturesManager::blockHeight;
-int MLFeaturesManager::frameWidth, MLFeaturesManager::frameHeight, MLFeaturesManager::framePoc, MLFeaturesManager::frameLevel;
-bool MLFeaturesManager::isIntra;
+std::mutex MLFeaturesManager::writeMutex;
 
-void MLFeaturesManager::init(std::string fileName) {
+thread_local std::vector<MLFeatureData> localBuffer;
+
+const size_t MAX_BUFFER_SIZE = 5000; 
+
+void MLFeaturesManager::init(const std::string& fileName) {
     featFp.open(fileName);
-    featFp << "frame_width;frame_height;frame_poc;frame_level;x_pos;y_pos;block_width;block_height;is_intra" << std::endl;
+    if (featFp.is_open()) {
+        featFp << "frame_width;frame_height;frame_poc;frame_level;x_pos;y_pos;block_width;block_height;is_intra\n";
+    } else {
+        std::cerr << "[Error] MLFeaturesManager: Could not open file " << fileName << std::endl;
+    }
 }
 
-void MLFeaturesManager::finish() {
-    featFp.close();
+void MLFeaturesManager::flushBuffer() {
+    if (localBuffer.empty()) return;
+
+    std::lock_guard<std::mutex> lock(writeMutex);
+    
+    if (featFp.is_open()) {
+        for (const auto& data : localBuffer) {
+            featFp << data.frameWidth << ";"
+                   << data.frameHeight << ";"
+                   << data.framePoc << ";"
+                   << data.frameLevel << ";"
+                   << data.xPos << ";"
+                   << data.yPos << ";"
+                   << data.blockWidth << ";"
+                   << data.blockHeight << ";" 
+                   << data.isIntra << "\n";
+        }
+    }
+    
+    localBuffer.clear();
 }
 
-void MLFeaturesManager::addFeaturesLine() {
+void MLFeaturesManager::saveFeatures(const MLFeatureData& data) {
 
-#if AVOID_FRAME_LEVEL_0
-    if(frameLevel == 0) 
+#if AVOID_FRAME_LEVEL_0 == 1
+    if (data.frameLevel == 0)
         return;
 #endif
 
-    featFp << frameWidth << ";";
-    featFp << frameHeight << ";";
-    featFp << framePoc << ";";
-    featFp << frameLevel << ";";
-    
-    featFp << xPos << ";";
-    featFp << yPos << ";";
-    featFp << blockWidth << ";";
-    featFp << blockWidth << ";";
+    localBuffer.push_back(data);
 
-    featFp << isIntra;
-    featFp << std::endl;
+    if (localBuffer.size() >= MAX_BUFFER_SIZE) {
+        flushBuffer();
+    }
 }
 
-void MLFeaturesManager::collectFrameParameters(int frameWidth, int frameHeight, int framePoc, int frameLevel) {
-    MLFeaturesManager::frameWidth = frameWidth;
-    MLFeaturesManager::frameHeight = frameHeight;
-    MLFeaturesManager::framePoc = framePoc;
-    MLFeaturesManager::frameLevel = frameLevel;
-}
-
-void MLFeaturesManager::collectBlockParameters(int xPos, int yPos, int blockWidth, int blockHeight) {
-    MLFeaturesManager::xPos = xPos;
-    MLFeaturesManager::yPos = yPos;
-    MLFeaturesManager::blockWidth = blockWidth;
-    MLFeaturesManager::blockHeight = blockHeight;
-}
-
-void MLFeaturesManager::collectPredMode(vvenc::PredMode predMode) {
-    isIntra = (predMode == vvenc::PredMode::MODE_INTRA);
+void MLFeaturesManager::finish() {
+    flushBuffer(); 
+    if (featFp.is_open()) {
+        featFp.close();
+    }
 }

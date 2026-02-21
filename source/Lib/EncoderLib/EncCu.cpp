@@ -1097,10 +1097,21 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
   CHECK( bestCS->cost             == MAX_DOUBLE                , "No possible encoding found" );
 
 #if ENABLE_FEATURES_EXTRACTION
-  MLFeaturesManager::collectFrameParameters(slice.pic->Y().width, slice.pic->Y().height, slice.poc, slice.TLayer);
-  MLFeaturesManager::collectBlockParameters(bestCS->cus[0]->lx(), bestCS->cus[0]->ly(), bestCS->cus[0]->lwidth(), bestCS->cus[0]->lheight());
-  MLFeaturesManager::collectPredMode(bestCS->cus[0]->predMode);
-  MLFeaturesManager::addFeaturesLine();
+  MLFeatureData featData;
+
+  featData.frameWidth  = slice.pic->Y().width;
+  featData.frameHeight = slice.pic->Y().height;
+  featData.framePoc    = slice.poc;
+  featData.frameLevel  = slice.TLayer;
+
+  featData.xPos        = bestCS->cus[0]->lx();
+  featData.yPos        = bestCS->cus[0]->ly();
+  featData.blockWidth  = bestCS->cus[0]->lwidth();
+  featData.blockHeight = bestCS->cus[0]->lheight();
+
+  featData.isIntra     = (bestCS->cus[0]->predMode == vvenc::PredMode::MODE_INTRA);
+
+  MLFeaturesManager::saveFeatures(featData);
 #endif
 }
 
