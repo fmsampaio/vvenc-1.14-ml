@@ -744,6 +744,8 @@ typedef struct vvenc_config
   char                m_traceFile[VVENC_MAX_STRING_LEN];
 
   char                m_mlFeaturesFile[VVENC_MAX_STRING_LEN];
+  char                m_mlVideoName[VVENC_MAX_STRING_LEN];
+  char                m_mlPreset[VVENC_MAX_STRING_LEN];
 
   char                m_summaryOutFilename[VVENC_MAX_STRING_LEN];                        // filename to use for producing summary output file.
   char                m_summaryPicFilenameBase[VVENC_MAX_STRING_LEN];                    // Base filename to use for producing summary picture output files. The actual filenames used will have I.txt, P.txt and B.txt appended.

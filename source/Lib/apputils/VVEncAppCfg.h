@@ -513,6 +513,25 @@ public:
 */
 int parse( int argc, char* argv[], vvenc_config* c, std::ostream& rcOstr )
 {
+  std::string vName = "Unknown", preset = "Unknown";
+
+  for (int i = 0; i < argc; i++) {
+      std::string arg = argv[i];
+
+      if (arg.find(".cfg") != std::string::npos) {
+          for (auto p : {"faster", "slower", "fast", "slow", "medium"}) 
+              if (arg.find(p) != std::string::npos) { preset = p; break; }
+      }
+      
+      if (arg.find(".yuv") != std::string::npos || arg.find(".y4m") != std::string::npos) {
+          std::string f = arg.substr(arg.find_last_of("/\\") + 1);
+          vName = f.substr(0, f.find_first_of("_."));
+      }
+  }
+  
+  snprintf(c->m_mlVideoName, VVENC_MAX_STRING_LEN, "%s", vName.c_str());
+  snprintf(c->m_mlPreset,    VVENC_MAX_STRING_LEN, "%s", preset.c_str());
+
   int ret = 0;
 
   //

@@ -115,7 +115,16 @@ void EncLib::initEncoderLib( const vvenc_config& encCfg )
 
 #if ENABLE_FEATURES_EXTRACTION
   std::string fileName(encCfg.m_mlFeaturesFile);
-  MLFeaturesManager::init(fileName);
+
+  std::string vName(encCfg.m_mlVideoName);
+  std::string preset(encCfg.m_mlPreset);
+  
+  int tQp = encCfg.m_QP;
+  int bDepth = encCfg.m_internalBitDepth[vvenc::CH_L];
+  int fWidth = encCfg.m_SourceWidth;
+  int fHeight = encCfg.m_SourceHeight;
+
+  MLFeaturesManager::init(fileName, vName, preset, tQp, bDepth, fWidth, fHeight);
 #endif
   
 

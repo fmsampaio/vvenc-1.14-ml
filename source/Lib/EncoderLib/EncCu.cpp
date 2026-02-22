@@ -1099,17 +1099,30 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
 #if ENABLE_FEATURES_EXTRACTION
   MLFeatureData featData;
 
-  featData.frameWidth  = slice.pic->Y().width;
-  featData.frameHeight = slice.pic->Y().height;
+  vvenc::CodingUnit* cu = bestCS->cus[0];
+
   featData.framePoc    = slice.poc;
   featData.frameLevel  = slice.TLayer;
+  featData.xPos        = cu->lx();
+  featData.yPos        = cu->ly();
+  featData.blockWidth  = cu->lwidth();
+  featData.blockHeight = cu->lheight();
 
-  featData.xPos        = bestCS->cus[0]->lx();
-  featData.yPos        = bestCS->cus[0]->ly();
-  featData.blockWidth  = bestCS->cus[0]->lwidth();
-  featData.blockHeight = bestCS->cus[0]->lheight();
+  featData.blockArea = featData.blockWidth * featData.blockHeight;
+  featData.blockAreaGroup = (int)std::log2(featData.blockArea) - 4;
 
-  featData.isIntra     = (bestCS->cus[0]->predMode == vvenc::PredMode::MODE_INTRA);
+  featData.borderContactMask = 0;
+  if (featData.xPos == 0) featData.borderContactMask += 1; // Left
+  if ((featData.xPos + featData.blockWidth) == MLFeaturesManager::getFrameWidth()) featData.borderContactMask += 2; // Right
+  if (featData.yPos == 0) featData.borderContactMask += 4; // Top
+  if ((featData.yPos + featData.blockHeight) == MLFeaturesManager::getFrameHeight()) featData.borderContactMask += 8; // Bottom
+
+  featData.isIntra     = (cu->predMode == vvenc::PredMode::MODE_INTRA);
+  featData.cuQp        = cu->qp;
+  featData.depth       = cu->depth;
+  featData.qtDepth     = cu->qtDepth;
+  featData.btDepth     = cu->btDepth;
+  featData.splitSeries = (long long)cu->splitSeries; 
 
   MLFeaturesManager::saveFeatures(featData);
 #endif

@@ -3,14 +3,28 @@
 std::ofstream MLFeaturesManager::featFp;
 std::mutex MLFeaturesManager::writeMutex;
 
-thread_local std::vector<MLFeatureData> localBuffer;
+std::string MLFeaturesManager::videoName;
+std::string MLFeaturesManager::encoderPreset;
+int MLFeaturesManager::targetQP;
+int MLFeaturesManager::bitDepth;
+int MLFeaturesManager::frameWidth;
+int MLFeaturesManager::frameHeight;
 
+thread_local std::vector<MLFeatureData> localBuffer;
 const size_t MAX_BUFFER_SIZE = 5000; 
 
-void MLFeaturesManager::init(const std::string& fileName) {
+void MLFeaturesManager::init(const std::string& fileName, const std::string& vName, 
+                             const std::string& preset, int tQp, int bDepth, int fWidth, int fHeight) {
+    videoName = vName;
+    encoderPreset = preset;
+    targetQP = tQp;
+    bitDepth = bDepth;
+    frameWidth = fWidth;
+    frameHeight = fHeight;
+
     featFp.open(fileName);
     if (featFp.is_open()) {
-        featFp << "frame_width;frame_height;frame_poc;frame_level;x_pos;y_pos;block_width;block_height;is_intra\n";
+        featFp << "VideoName;EncoderPreset;TargetQP;BitDepth;FrameWidth;FrameHeight;Frame;X_Pos;Y_Pos;BlockWidth;BlockHeight;BlockArea;BlockAreaGroup;FrameLevel;BorderContactMask;IsIntra;CU_QP;Depth;QTDepth;BTDepth;SplitSeries\n";
     } else {
         std::cerr << "[Error] MLFeaturesManager: Could not open file " << fileName << std::endl;
     }
@@ -23,18 +37,29 @@ void MLFeaturesManager::flushBuffer() {
     
     if (featFp.is_open()) {
         for (const auto& data : localBuffer) {
-            featFp << data.frameWidth << ";"
-                   << data.frameHeight << ";"
+            featFp << videoName << ";"
+                   << encoderPreset << ";"
+                   << targetQP << ";"
+                   << bitDepth << ";"
+                   << frameWidth << ";"
+                   << frameHeight << ";"
                    << data.framePoc << ";"
-                   << data.frameLevel << ";"
                    << data.xPos << ";"
                    << data.yPos << ";"
                    << data.blockWidth << ";"
                    << data.blockHeight << ";" 
-                   << data.isIntra << "\n";
+                   << data.blockArea << ";"
+                   << data.blockAreaGroup << ";"
+                   << data.frameLevel << ";"
+                   << data.borderContactMask << ";"
+                   << data.isIntra << ";"
+                   << data.cuQp << ";"
+                   << data.depth << ";"
+                   << data.qtDepth << ";"
+                   << data.btDepth << ";"
+                   << data.splitSeries << "\n";
         }
     }
-    
     localBuffer.clear();
 }
 
