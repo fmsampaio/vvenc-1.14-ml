@@ -8,8 +8,12 @@
 #include <cmath>
 #include "CommonDef.h"
 
-#define ENABLE_FEATURES_EXTRACTION 1
+#define ENABLE_FEATURES_EXTRACTION 0
 #define AVOID_FRAME_LEVEL_0 1
+
+#if ENABLE_FEATURES_EXTRACTION
+    #define ENABLE_IMAGE_FEATURES_EXTRACTION 1
+#endif
 
 struct MLFeatureData {
     int framePoc;
@@ -27,6 +31,17 @@ struct MLFeatureData {
     int qtDepth;
     int btDepth;
     long long splitSeries;
+
+#if ENABLE_IMAGE_FEATURES_EXTRACTION
+    double blkPixelMean, blkPixelVariance, blkPixelStdDev, blkPixelSum;
+    double blkVarH, blkVarV, blkStdH, blkStdV;
+    double blkMin, blkMax, blkRange;
+    double blkLaplacianVar, blkEntropy;
+    double blkSobelGv, blkSobelGh, blkSobelMag, blkSobelDir, blkSobelRazaoGrad;
+    double blkPrewittGv, blkPrewittGh, blkPrewittMag, blkPrewittDir, blkPrewittRazaoGrad;
+    double blkHadDc, blkHadEnergyTotal, blkHadEnergyAc, blkHadMax, blkHadMin;
+    double blkHadTopLeft, blkHadTopRight, blkHadBottomLeft, blkHadBottomRight;
+#endif
 };
 
 class VVENC_DECL MLFeaturesManager {

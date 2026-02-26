@@ -61,6 +61,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "CommonLib/SearchSpaceCounter.h"
 
 #include "CommonLib/MLFeaturesManager.h"
+#include "CommonLib/ImageFeatures.h"
 
 #include <mutex>
 #include <cmath>
@@ -1124,7 +1125,16 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
   featData.btDepth     = cu->btDepth;
   featData.splitSeries = (long long)cu->splitSeries; 
 
+#if ENABLE_IMAGE_FEATURES_EXTRACTION == 1
+  vvenc::CPelBuf orgBuf = bestCS->getOrgBuf(cu->Y());
+  
+  if (computeImageFeatures(orgBuf.buf, orgBuf.stride, orgBuf.width, orgBuf.height, featData)) {
+      MLFeaturesManager::saveFeatures(featData);
+  }
+#else
   MLFeaturesManager::saveFeatures(featData);
+#endif
+
 #endif
 }
 

@@ -216,3 +216,7 @@ set_target_properties( ${LIB_NAME} PROPERTIES
                                    INSTALL_NAME_DIR ${CMAKE_INSTALL_PREFIX}/lib
                                    MACOSX_RPATH FALSE
                                    FOLDER lib )
+
+find_package(OpenCV REQUIRED)
+target_include_directories( ${LIB_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS} )
+target_link_libraries( ${LIB_NAME} PRIVATE ${OpenCV_LIBS} )
