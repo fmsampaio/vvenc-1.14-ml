@@ -11,8 +11,12 @@ int MLFeaturesManager::bitDepth;
 int MLFeaturesManager::frameWidth;
 int MLFeaturesManager::frameHeight;
 
+std::unordered_map<int, std::vector<MLFeatureData>> MLFeaturesManager::reservoirs;
+std::unordered_map<int, uint64_t> MLFeaturesManager::seenCount;
+
 thread_local std::vector<MLFeatureData> localBuffer;
-const size_t MAX_BUFFER_SIZE = 5000; 
+thread_local std::mt19937 localRng(std::random_device{}());
+const size_t MAX_BUFFER_SIZE = 5000;
 
 void MLFeaturesManager::init(const std::string& fileName, const std::string& vName, 
                              const std::string& preset, int tQp, int bDepth, int fWidth, int fHeight) {
@@ -88,13 +92,59 @@ void MLFeaturesManager::init(const std::string& fileName, const std::string& vNa
     }
 }
 
+void MLFeaturesManager::saveFeatures(const MLFeatureData& data) {
+#if AVOID_FRAME_LEVEL_0 == 1
+    if (data.frameLevel == 0)
+        return;
+#endif
+
+    localBuffer.push_back(data);
+    if (localBuffer.size() >= MAX_BUFFER_SIZE) {
+        flushBuffer();
+    }
+}
+
 void MLFeaturesManager::flushBuffer() {
     if (localBuffer.empty()) return;
 
     std::lock_guard<std::mutex> lock(writeMutex);
-    
-    if (featFp.is_open()) {
-        for (const auto& data : localBuffer) {
+
+    for (const auto& data : localBuffer) {
+        // Creates unique class keys by combining frame level and intra/inter mode
+        int isIntraVal = data.isIntra ? 1 : 0;
+        int classKey = (data.frameLevel * 2) + isIntraVal; 
+
+        uint64_t& count = seenCount[classKey];
+        count++;
+
+        auto& reservoir = reservoirs[classKey];
+
+        if (reservoir.size() < RESERVOIR_SIZE) {
+            reservoir.push_back(data);
+        } else {
+            std::uniform_int_distribution<uint64_t> dist(0, count - 1);
+            uint64_t j = dist(localRng);
+
+            if (j < RESERVOIR_SIZE) {
+                reservoir[j] = data;
+            }
+        }
+    }
+    localBuffer.clear();
+}
+
+void MLFeaturesManager::finish() {
+    flushBuffer();
+
+    std::lock_guard<std::mutex> lock(writeMutex);
+
+    if (!featFp.is_open())
+        return;
+
+    for (auto& entry : reservoirs) {
+        auto& reservoir = entry.second;
+        
+        for (const auto& data : reservoir) {
             featFp << videoName << ";"
                    << encoderPreset << ";"
                    << targetQP << ";"
@@ -105,7 +155,7 @@ void MLFeaturesManager::flushBuffer() {
                    << data.xPos << ";"
                    << data.yPos << ";"
                    << data.blockWidth << ";"
-                   << data.blockHeight << ";" 
+                   << data.blockHeight << ";"
                    << data.blockArea << ";"
                    << data.blockAreaGroup << ";"
                    << data.frameLevel << ";"
@@ -150,29 +200,14 @@ void MLFeaturesManager::flushBuffer() {
                    << data.blkHadTopLeft << ";"
                    << data.blkHadTopRight << ";"
                    << data.blkHadBottomLeft << ";"
-                   << data.blkHadBottomRight; 
+                   << data.blkHadBottomRight;
 #endif
             featFp << "\n";
         }
     }
-    localBuffer.clear();
-}
 
-void MLFeaturesManager::saveFeatures(const MLFeatureData& data) {
-#if AVOID_FRAME_LEVEL_0 == 1
-    if (data.frameLevel == 0)
-        return;
-#endif
-
-    localBuffer.push_back(data);
-    if (localBuffer.size() >= MAX_BUFFER_SIZE) {
-        flushBuffer();
-    }
-}
-
-void MLFeaturesManager::finish() {
-    flushBuffer(); 
-    if (featFp.is_open()) {
-        featFp.close();
-    }
+    featFp.close();
+    
+    reservoirs.clear();
+    seenCount.clear();
 }

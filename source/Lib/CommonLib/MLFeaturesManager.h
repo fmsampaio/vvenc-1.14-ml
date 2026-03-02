@@ -6,6 +6,8 @@
 #include <mutex>
 #include <vector>
 #include <cmath>
+#include <unordered_map>
+#include <random>
 #include "CommonDef.h"
 
 #define ENABLE_FEATURES_EXTRACTION 0
@@ -55,6 +57,10 @@ private:
     static int bitDepth;
     static int frameWidth;
     static int frameHeight;
+
+    static constexpr size_t RESERVOIR_SIZE = 200000; // 200k samples per (frameLevel × intra/inter) class
+    static std::unordered_map<int, std::vector<MLFeatureData>> reservoirs; // key = classId (frameLevel × intra/inter)
+    static std::unordered_map<int, uint64_t> seenCount;
 
 public:
     static void init(const std::string& fileName, const std::string& vName, 
