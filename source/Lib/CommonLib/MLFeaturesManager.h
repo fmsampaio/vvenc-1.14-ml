@@ -38,11 +38,13 @@ struct MLFeatureData {
     double blkPixelMean, blkPixelVariance, blkPixelStdDev, blkPixelSum;
     double blkVarH, blkVarV, blkStdH, blkStdV;
     double blkMin, blkMax, blkRange;
-    double blkLaplacianVar, blkEntropy;
-    double blkSobelGv, blkSobelGh, blkSobelMag, blkSobelDir, blkSobelRazaoGrad;
-    double blkPrewittGv, blkPrewittGh, blkPrewittMag, blkPrewittDir, blkPrewittRazaoGrad;
-    double blkHadDc, blkHadEnergyTotal, blkHadEnergyAc, blkHadMax, blkHadMin;
-    double blkHadTopLeft, blkHadTopRight, blkHadBottomLeft, blkHadBottomRight;
+    
+    // Removed complex features
+    // double blkLaplacianVar, blkEntropy;
+    // double blkSobelGv, blkSobelGh, blkSobelMag, blkSobelDir, blkSobelRazaoGrad;
+    // double blkPrewittGv, blkPrewittGh, blkPrewittMag, blkPrewittDir, blkPrewittRazaoGrad;
+    // double blkHadDc, blkHadEnergyTotal, blkHadEnergyAc, blkHadMax, blkHadMin;
+    // double blkHadTopLeft, blkHadTopRight, blkHadBottomLeft, blkHadBottomRight;
 #endif
 };
 

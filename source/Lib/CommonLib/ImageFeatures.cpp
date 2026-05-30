@@ -2,7 +2,8 @@
 
 #if ENABLE_IMAGE_FEATURES_EXTRACTION
 
-// 1D Fast Walsh-Hadamard Transform (in-place)
+// 1D Fast Walsh-Hadamard Transform (in-place) - REMOVED
+/*
 void fwht_1d(cv::Mat& vec) {
     int n = vec.cols > 1 ? vec.cols : vec.rows;
     for (int len = 1; len < n; len <<= 1) {
@@ -17,8 +18,10 @@ void fwht_1d(cv::Mat& vec) {
         }
     }
 }
+*/
 
-// 2D Hadamard Transform
+// 2D Hadamard Transform - REMOVED
+/*
 cv::Mat fwht_2d(const cv::Mat& blk) {
     cv::Mat H;
     blk.convertTo(H, CV_32F);
@@ -35,6 +38,7 @@ cv::Mat fwht_2d(const cv::Mat& blk) {
 
     return H;
 }
+*/
 
 // Mean, Variance, StdDev and Sum
 std::tuple<double,double,double,double> calculate_basic_features_cv(const cv::Mat& blk) {
@@ -92,7 +96,8 @@ std::array<double,4> calculate_stats_cv(const cv::Mat& blk) {
     return {vH, vV, dV, dH};
 }
 
-// Sobel Gradients
+// Sobel Gradients - REMOVED
+/*
 std::array<double,5> calculate_gradients_sobel_cv(const cv::Mat& blk) {
     cv::Mat blk_f; 
     blk.convertTo(blk_f, CV_32F); 
@@ -114,8 +119,10 @@ std::array<double,5> calculate_gradients_sobel_cv(const cv::Mat& blk) {
     
     return {mGv, mGh, meanMag, meanDir, razao_grad};
 }
+*/
 
-// Prewitt Gradients
+// Prewitt Gradients - REMOVED
+/*
 std::array<double,5> calculate_gradients_prewitt_cv(const cv::Mat& blk) {
     cv::Mat blk_f; 
     blk.convertTo(blk_f, CV_32F);
@@ -140,8 +147,9 @@ std::array<double,5> calculate_gradients_prewitt_cv(const cv::Mat& blk) {
     
     return {mGv, mGh, meanMag, meanDir, razao_grad};
 }
+*/
 
-// Contrast
+// Contrast - KEPT (used for blk_min, blk_max, blk_range)
 std::array<double,3> calculate_contrast_features_cv(const cv::Mat& blk) {
     double minVal, maxVal; 
     cv::minMaxLoc(blk, &minVal, &maxVal);
@@ -149,7 +157,8 @@ std::array<double,3> calculate_contrast_features_cv(const cv::Mat& blk) {
     return {minVal, maxVal, maxVal - minVal};
 }
 
-// Sharpness (Laplacian variance)
+// Sharpness (Laplacian variance) - REMOVED
+/*
 double calculate_laplacian_var_cv(const cv::Mat& blk) {
     cv::Mat blk_f; 
     blk.convertTo(blk_f, CV_32F); 
@@ -162,8 +171,10 @@ double calculate_laplacian_var_cv(const cv::Mat& blk) {
     
     return stddev[0] * stddev[0];
 }
+*/
 
-// Shannon Entropy
+// Shannon Entropy - REMOVED
+/*
 double calculate_entropy_cv(const cv::Mat& blk) {
     int histSize = 256; 
     float range[] = {0, 256}; 
@@ -184,8 +195,10 @@ double calculate_entropy_cv(const cv::Mat& blk) {
     
     return entropy;
 }
+*/
 
-// Hadamard
+// Hadamard - REMOVED
+/*
 HadamardFeatures calculate_hadamard_features(const cv::Mat& blk) {
     cv::Mat H = fwht_2d(blk); 
     HadamardFeatures f{};
@@ -207,6 +220,7 @@ HadamardFeatures calculate_hadamard_features(const cv::Mat& blk) {
     
     return f;
 }
+*/
 
 bool computeImageFeatures(const vvenc::Pel* buf, int stride, int width, int height, MLFeatureData& data) {
     if (buf == nullptr || width <= 0 || height <= 0) {
@@ -233,38 +247,38 @@ bool computeImageFeatures(const vvenc::Pel* buf, int stride, int width, int heig
     data.blkStdV = stats[2]; 
     data.blkStdH = stats[3]; 
 
-    auto sob = calculate_gradients_sobel_cv(blk);
-    data.blkSobelGv = sob[0]; 
-    data.blkSobelGh = sob[1]; 
-    data.blkSobelMag = sob[2]; 
-    data.blkSobelDir = sob[3]; 
-    data.blkSobelRazaoGrad = sob[4];
-
-    auto pre = calculate_gradients_prewitt_cv(blk);
-    data.blkPrewittGv = pre[0]; 
-    data.blkPrewittGh = pre[1]; 
-    data.blkPrewittMag = pre[2]; 
-    data.blkPrewittDir = pre[3]; 
-    data.blkPrewittRazaoGrad = pre[4];
+    // Removed complex features
+    // auto sob = calculate_gradients_sobel_cv(blk);
+    // data.blkSobelGv = sob[0]; 
+    // data.blkSobelGh = sob[1]; 
+    // data.blkSobelMag = sob[2]; 
+    // data.blkSobelDir = sob[3]; 
+    // data.blkSobelRazaoGrad = sob[4];
+    // auto pre = calculate_gradients_prewitt_cv(blk);
+    // data.blkPrewittGv = pre[0]; 
+    // data.blkPrewittGh = pre[1]; 
+    // data.blkPrewittMag = pre[2]; 
+    // data.blkPrewittDir = pre[3]; 
+    // data.blkPrewittRazaoGrad = pre[4];
 
     auto contrast = calculate_contrast_features_cv(blk);
     data.blkMin = contrast[0]; 
     data.blkMax = contrast[1]; 
     data.blkRange = contrast[2];
 
-    data.blkLaplacianVar = calculate_laplacian_var_cv(blk);
-    data.blkEntropy = calculate_entropy_cv(blk);
-
-    HadamardFeatures had = calculate_hadamard_features(blk);
-    data.blkHadDc = had.dc; 
-    data.blkHadEnergyTotal = had.energy_total; 
-    data.blkHadEnergyAc = had.energy_ac; 
-    data.blkHadMax = had.max_coef; 
-    data.blkHadMin = had.min_coef;
-    data.blkHadTopLeft = had.top_left; 
-    data.blkHadTopRight = had.top_right; 
-    data.blkHadBottomLeft = had.bottom_left; 
-    data.blkHadBottomRight = had.bottom_right;
+    // Removed complex image features
+    // data.blkLaplacianVar = calculate_laplacian_var_cv(blk);
+    // data.blkEntropy = calculate_entropy_cv(blk);
+    // HadamardFeatures had = calculate_hadamard_features(blk);
+    // data.blkHadDc = had.dc; 
+    // data.blkHadEnergyTotal = had.energy_total; 
+    // data.blkHadEnergyAc = had.energy_ac; 
+    // data.blkHadMax = had.max_coef; 
+    // data.blkHadMin = had.min_coef;
+    // data.blkHadTopLeft = had.top_left; 
+    // data.blkHadTopRight = had.top_right; 
+    // data.blkHadBottomLeft = had.bottom_left; 
+    // data.blkHadBottomRight = had.bottom_right;
 
     return true;
 }

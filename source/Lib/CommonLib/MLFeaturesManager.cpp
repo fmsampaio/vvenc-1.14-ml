@@ -63,28 +63,29 @@ void MLFeaturesManager::init(const std::string& fileName, const std::string& vNa
                << "blk_std_v;"
                << "blk_min;"
                << "blk_max;"
-               << "blk_range;"
-               << "blk_laplacian_var;"
-               << "blk_entropy;"
-               << "blk_sobel_gv;"
-               << "blk_sobel_gh;"
-               << "blk_sobel_mag;"
-               << "blk_sobel_dir;"
-               << "blk_sobel_razao_grad;"
-               << "blk_prewitt_gv;"
-               << "blk_prewitt_gh;"
-               << "blk_prewitt_mag;"
-               << "blk_prewitt_dir;"
-               << "blk_prewitt_razao_grad;"
-               << "blk_had_dc;"
-               << "blk_had_energy_total;"
-               << "blk_had_energy_ac;"
-               << "blk_had_max;"
-               << "blk_had_min;"
-               << "blk_had_topleft;"
-               << "blk_had_topright;"
-               << "blk_had_bottomleft;"
-               << "blk_had_bottomright";
+               << "blk_range;";
+               // Removed complex features
+               // "blk_laplacian_var;"
+               // "blk_entropy;"
+               // "blk_sobel_gv;"
+               // "blk_sobel_gh;"
+               // "blk_sobel_mag;"
+               // "blk_sobel_dir;"
+               // "blk_sobel_razao_grad;"
+               // "blk_prewitt_gv;"
+               // "blk_prewitt_gh;"
+               // "blk_prewitt_mag;"
+               // "blk_prewitt_dir;"
+               // "blk_prewitt_razao_grad;"
+               // "blk_had_dc;"
+               // "blk_had_energy_total;"
+               // "blk_had_energy_ac;"
+               // "blk_had_max;"
+               // "blk_had_min;"
+               // "blk_had_topleft;"
+               // "blk_had_topright;"
+               // "blk_had_bottomleft;"
+               // "blk_had_bottomright";
 #endif
         featFp << "\n";
     } else {
@@ -179,28 +180,29 @@ void MLFeaturesManager::finish() {
                    << data.blkStdV << ";"
                    << data.blkMin << ";"
                    << data.blkMax << ";"
-                   << data.blkRange << ";"
-                   << data.blkLaplacianVar << ";"
-                   << data.blkEntropy << ";"
-                   << data.blkSobelGv << ";"
-                   << data.blkSobelGh << ";"
-                   << data.blkSobelMag << ";"
-                   << data.blkSobelDir << ";"
-                   << data.blkSobelRazaoGrad << ";"
-                   << data.blkPrewittGv << ";"
-                   << data.blkPrewittGh << ";"
-                   << data.blkPrewittMag << ";"
-                   << data.blkPrewittDir << ";"
-                   << data.blkPrewittRazaoGrad << ";"
-                   << data.blkHadDc << ";"
-                   << data.blkHadEnergyTotal << ";"
-                   << data.blkHadEnergyAc << ";"
-                   << data.blkHadMax << ";"
-                   << data.blkHadMin << ";"
-                   << data.blkHadTopLeft << ";"
-                   << data.blkHadTopRight << ";"
-                   << data.blkHadBottomLeft << ";"
-                   << data.blkHadBottomRight;
+                   << data.blkRange;
+                   // Removed complex features
+                   // << ";" << data.blkLaplacianVar
+                   // << ";" << data.blkEntropy
+                   // << ";" << data.blkSobelGv
+                   // << ";" << data.blkSobelGh
+                   // << ";" << data.blkSobelMag
+                   // << ";" << data.blkSobelDir
+                   // << ";" << data.blkSobelRazaoGrad
+                   // << ";" << data.blkPrewittGv
+                   // << ";" << data.blkPrewittGh
+                   // << ";" << data.blkPrewittMag
+                   // << ";" << data.blkPrewittDir
+                   // << ";" << data.blkPrewittRazaoGrad
+                   // << ";" << data.blkHadDc
+                   // << ";" << data.blkHadEnergyTotal
+                   // << ";" << data.blkHadEnergyAc
+                   // << ";" << data.blkHadMax
+                   // << ";" << data.blkHadMin
+                   // << ";" << data.blkHadTopLeft
+                   // << ";" << data.blkHadTopRight
+                   // << ";" << data.blkHadBottomLeft
+                   // << ";" << data.blkHadBottomRight;
 #endif
             featFp << "\n";
         }
