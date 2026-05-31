@@ -67,6 +67,49 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <cmath>
 #include <algorithm>
 
+namespace
+{
+struct BufferStats
+{
+  double mean    = 0.0;
+  double variance = 0.0;
+  double range   = 0.0;
+};
+
+BufferStats calcBufferStats( const vvenc::CPelBuf& buf )
+{
+  BufferStats stats;
+
+  if( buf.buf == nullptr || buf.width <= 0 || buf.height <= 0 )
+  {
+    return stats;
+  }
+
+  const int sampleCount = buf.width * buf.height;
+  double sum = 0.0;
+  double sumSq = 0.0;
+  double minVal = buf.at( 0, 0 );
+  double maxVal = minVal;
+
+  for( int y = 0; y < buf.height; y++ )
+  {
+    for( int x = 0; x < buf.width; x++ )
+    {
+      const double value = buf.at( x, y );
+      sum += value;
+      sumSq += value * value;
+      minVal = std::min( minVal, value );
+      maxVal = std::max( maxVal, value );
+    }
+  }
+
+  stats.mean = sum / sampleCount;
+  stats.variance = std::max( 0.0, ( sumSq / sampleCount ) - ( stats.mean * stats.mean ) );
+  stats.range = maxVal - minVal;
+  return stats;
+}
+} // namespace
+
 //! \ingroup EncoderLib
 //! \{
 
@@ -1109,6 +1152,12 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
   featData.blockWidth  = cu->lwidth();
   featData.blockHeight = cu->lheight();
 
+  const unsigned ctuSize = slice.pps ? slice.pps->ctuSize : 0;
+  featData.ctuPosInCtuX = ctuSize > 0 ? featData.xPos % (int)ctuSize : 0;
+  featData.ctuPosInCtuY = ctuSize > 0 ? featData.yPos % (int)ctuSize : 0;
+  featData.isFirstLineOfCTU = ( featData.ctuPosInCtuY == 0 );
+  featData.sliceType = slice.isIntra() ? 0 : ( slice.isInterP() ? 1 : 2 );
+
   featData.blockArea = featData.blockWidth * featData.blockHeight;
   featData.blockAreaGroup = (int)std::log2(featData.blockArea) - 4;
 
@@ -1123,7 +1172,94 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
   featData.depth       = cu->depth;
   featData.qtDepth     = cu->qtDepth;
   featData.btDepth     = cu->btDepth;
+  featData.cuMtDepth   = cu->mtDepth;
+  featData.cuBtDepth   = cu->btDepth;
   featData.splitSeries = (long long)cu->splitSeries; 
+
+  featData.interCost         = bestCS->cost;
+  featData.csInterHad        = 0.0;
+  if( m_modeCtrl.comprCUCtx )
+  {
+    const double had = static_cast<double>( m_modeCtrl.comprCUCtx->interHad );
+    if( had < 1e18 )
+    {
+      featData.csInterHad = had;
+    }
+  }
+  featData.interHadPerPixel  = featData.blockArea > 0 ? featData.csInterHad / (double)featData.blockArea : 0.0;
+
+  {
+    unsigned mpmList[NUM_LUMA_MODE] = { 0 };
+    const int numMPMs = CU::getIntraMPMs( *cu, mpmList );
+    int angularMPMs[NUM_LUMA_MODE] = { 0 };
+    int numAngularMPMs = 0;
+    for( int i = 0; i < numMPMs; i++ )
+    {
+      if( (int)mpmList[i] > DC_IDX )
+      {
+        angularMPMs[numAngularMPMs++] = (int)mpmList[i];
+      }
+    }
+
+    featData.mpm0 = numAngularMPMs > 0 ? angularMPMs[0] : ( numMPMs > 0 ? (int)mpmList[0] : -1 );
+
+    if( numAngularMPMs > 0 )
+    {
+      double mpmMean = 0.0;
+      for( int i = 0; i < numAngularMPMs; i++ )
+      {
+        mpmMean += angularMPMs[i];
+      }
+      mpmMean /= numAngularMPMs;
+
+      double mpmVar = 0.0;
+      for( int i = 0; i < numAngularMPMs; i++ )
+      {
+        const double diff = angularMPMs[i] - mpmMean;
+        mpmVar += diff * diff;
+      }
+      featData.mpmAngularVar = mpmVar / numAngularMPMs;
+    }
+    else
+    {
+      featData.mpmAngularVar = 0.0;
+    }
+  }
+
+  const CodingUnit* leftCu  = cu->cs->getCURestricted( cu->lumaPos().offset( -1,  0 ), *cu, CH_L );
+  const CodingUnit* aboveCu = cu->cs->getCURestricted( cu->lumaPos().offset(  0, -1 ), *cu, CH_L );
+
+  featData.availLeft      = leftCu  != nullptr;
+  featData.availAbove     = aboveCu != nullptr;
+  featData.leftIsIntra    = leftCu  != nullptr && leftCu->predMode  == vvenc::PredMode::MODE_INTRA;
+  featData.aboveIsIntra   = aboveCu != nullptr && aboveCu->predMode == vvenc::PredMode::MODE_INTRA;
+  featData.leftIntraDir   = leftCu  != nullptr ? leftCu->intraDir[CH_L] : -1;
+  featData.aboveIntraDir  = aboveCu != nullptr ? aboveCu->intraDir[CH_L] : -1;
+
+  featData.numIntraCiipNeighbors = (featData.leftIsIntra ? 1 : 0) + (featData.aboveIsIntra ? 1 : 0);
+
+  featData.canUseMIP = slice.sps->MIP && cu->lwidth() <= slice.sps->getMaxTbSize() && cu->lheight() <= slice.sps->getMaxTbSize();
+  featData.canUseISP = slice.sps->ISP && CU::canUseISP( cu->lwidth(), cu->lheight(), slice.sps->getMaxTbSize() );
+
+  if( featData.yPos > 0 )
+  {
+    CompArea aboveArea = cu->Y();
+    aboveArea.y -= 1;
+    aboveArea.height = 1;
+    const BufferStats aboveStats = calcBufferStats( bestCS->picture->getRecoBuf( aboveArea ) );
+    featData.refLineMean = aboveStats.mean;
+    featData.refLineVariance = aboveStats.variance;
+    featData.refLineRange = aboveStats.range;
+  }
+
+  if( featData.xPos > 0 )
+  {
+    CompArea leftArea = cu->Y();
+    leftArea.x -= 1;
+    leftArea.width = 1;
+    const BufferStats leftStats = calcBufferStats( bestCS->picture->getRecoBuf( leftArea ) );
+    featData.refColVariance = leftStats.variance;
+  }
 
 #if ENABLE_IMAGE_FEATURES_EXTRACTION == 1
   vvenc::CPelBuf orgBuf = bestCS->getOrgBuf(cu->Y());

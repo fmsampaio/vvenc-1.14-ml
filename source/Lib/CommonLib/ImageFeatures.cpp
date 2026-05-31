@@ -149,7 +149,7 @@ std::array<double,5> calculate_gradients_prewitt_cv(const cv::Mat& blk) {
 }
 */
 
-// Contrast - KEPT (used for blk_min, blk_max, blk_range)
+// Contrast
 std::array<double,3> calculate_contrast_features_cv(const cv::Mat& blk) {
     double minVal, maxVal; 
     cv::minMaxLoc(blk, &minVal, &maxVal);
@@ -279,6 +279,81 @@ bool computeImageFeatures(const vvenc::Pel* buf, int stride, int width, int heig
     // data.blkHadTopRight = had.top_right; 
     // data.blkHadBottomLeft = had.bottom_left; 
     // data.blkHadBottomRight = had.bottom_right;
+
+    // --- Geometry feature calculation ---
+    if (width == height) {
+        data.orientationGroup = 0;  // Square
+    } else if (width > height) {
+        data.orientationGroup = 1;  // Horizontal
+    } else {
+        data.orientationGroup = 2;  // Vertical
+    }
+    
+    int minDim = std::min(width, height);
+    int maxDim = std::max(width, height);
+    int ratio = maxDim / std::max(1, minDim);
+    data.aspectRatioGroup = (ratio > 0) ? static_cast<int>(std::log2(ratio) + 0.5) : 0;
+
+    // --- New derived feature calculations ---
+    
+    int fw = MLFeaturesManager::getFrameWidth();
+    int fh = MLFeaturesManager::getFrameHeight();
+    
+    // Relative block area
+    if (fw > 0 && fh > 0) {
+        data.relativeBlockArea = (double)data.blockArea / (double)(fw * fh);
+        
+        // Normalized center coordinates
+        double centerX = fw / 2.0;
+        double centerY = fh / 2.0;
+        data.distCenterX = std::abs(data.xPos + (width / 2.0) - centerX) / centerX;
+        data.distCenterY = std::abs(data.yPos + (height / 2.0) - centerY) / centerY;
+        data.centerFocusWeight = 1.0 / (std::sqrt(std::pow(data.distCenterX, 2) + std::pow(data.distCenterY, 2)) + 1.0);
+    } else {
+        data.relativeBlockArea = 0.0;
+        data.distCenterX = 0.0;
+        data.distCenterY = 0.0;
+        data.centerFocusWeight = 0.0;
+    }
+
+    // Delta QP
+    data.deltaQP = data.cuQp - MLFeaturesManager::getTargetQP();
+
+    // Contrast ratio
+    data.contrastRatio = data.blkRange / (data.blkPixelMean + 1.0);
+
+    // Directional dominance
+    data.directionalDominance = std::abs(data.blkVarH - data.blkVarV) / (data.blkVarH + data.blkVarV + 1.0);
+
+    // Variance per area
+    if (data.blockArea > 0) {
+        data.variancePerArea = data.blkPixelVariance / (double)data.blockArea;
+    } else {
+        data.variancePerArea = 0.0;
+    }
+
+    // Mean and variance mismatch
+    data.meanMismatch = std::abs(data.blkPixelMean - data.refLineMean);
+    data.varMismatch = std::abs(data.blkPixelVariance - data.refLineVariance);
+
+    // Coefficient of variation
+    data.coefVariation = data.blkPixelStdDev / (data.blkPixelMean + 1.0);
+
+    // Reference dominance (above vs left)
+    data.refDominance = data.refLineVariance / (data.refColVariance + 1.0);
+
+    // MPM delta (if both neighbors are intra, otherwise -1)
+    if (data.leftIsIntra && data.aboveIsIntra) {
+        data.mpmDelta = std::abs(data.leftIntraDir - data.aboveIntraDir);
+    } else {
+        data.mpmDelta = -1;
+    }
+
+    // Boundary complexity ratio
+    data.boundaryComplexityRatio = (data.refLineVariance + data.refColVariance) / (data.blkPixelVariance + 1.0);
+
+    // Splitting density (generic VVC max depth is about 6)
+    data.splittingDensity = (data.cuMtDepth + data.cuBtDepth) / 6.0;
 
     return true;
 }
