@@ -281,6 +281,86 @@ MLFeatureData MLFeaturesManager::extractFeatures(const vvenc::CodingStructure& c
     if( aboveLeftCu && aboveLeftCu->predMode == vvenc::PredMode::MODE_INTRA ) featData.numIntraNeighbors4++;
     if( aboveRightCu && aboveRightCu->predMode == vvenc::PredMode::MODE_INTRA ) featData.numIntraNeighbors4++;
 
+    featData.leftIsMIP = leftCu != nullptr ? leftCu->mipFlag : false;
+    featData.aboveIsMIP = aboveCu != nullptr ? aboveCu->mipFlag : false;
+    featData.leftISPMode = leftCu != nullptr ? leftCu->ispMode : 0;
+    featData.aboveISPMode = aboveCu != nullptr ? aboveCu->ispMode : 0;
+
+    int alDepth = aboveLeftCu ? aboveLeftCu->depth : -1;
+    int arDepth = aboveRightCu ? aboveRightCu->depth : -1;
+    int sumDepth = 0;
+    int countDepth = 0;
+    if (featData.leftDepth >= 0) { sumDepth += featData.leftDepth; countDepth++; }
+    if (featData.aboveDepth >= 0) { sumDepth += featData.aboveDepth; countDepth++; }
+    if (alDepth >= 0) { sumDepth += alDepth; countDepth++; }
+    if (arDepth >= 0) { sumDepth += arDepth; countDepth++; }
+    featData.neighborMeanDepth = countDepth > 0 ? (double)sumDepth / countDepth : -1.0;
+
+    featData.refIsIntra = 0;
+    featData.refIntraAreaRatio = 0.0;
+    featData.refBiPredAreaRatio = 0.0;
+    featData.refMvAvgMagnitude = 0.0;
+    featData.refMvMagnitudeVar = 0.0;
+
+    if( !cu.slice->isIntra() )
+    {
+        const vvenc::Picture* refPic = cu.slice->getRefPic( vvenc::REF_PIC_LIST_0, 0 );
+        if( refPic != nullptr && refPic->cs != nullptr )
+        {
+            int intra4x4Count = 0, biPred4x4Count = 0, inter4x4Count = 0, total4x4 = 0;
+            double mvMagSum = 0.0, mvMagSqSum = 0.0;
+
+            const int cuX = cu.lx();
+            const int cuY = cu.ly();
+            const int cuW = cu.lwidth();
+            const int cuH = cu.lheight();
+
+            const int picW = refPic->cs->pcv->lumaWidth;
+            const int picH = refPic->cs->pcv->lumaHeight;
+
+            for (int y = 0; y < cuH; y += 4)
+            {
+                for (int x = 0; x < cuW; x += 4)
+                {
+                    vvenc::Position subPos(cuX + x, cuY + y);
+
+                    if (subPos.x >= picW || subPos.y >= picH)
+                    {
+                        continue;
+                    }
+
+                    total4x4++;
+                    const vvenc::MotionInfo& mi = refPic->cs->getMotionInfo( subPos );
+
+                    if( !mi.isInter() )
+                    {
+                        intra4x4Count++;            // intra or IBC (no motion stored)
+                    }
+                    else
+                    {
+                        inter4x4Count++;
+                        if( mi.interDir() == 3 ) biPred4x4Count++;   // bi-predicted
+
+                        const double mvMag = mi.mv[0].getAbsHor() + mi.mv[0].getAbsVer();
+                        mvMagSum   += mvMag;
+                        mvMagSqSum += mvMag * mvMag;
+                    }
+                }
+            }
+
+            if (total4x4 > 0) {
+                featData.refIsIntra        = (intra4x4Count > 0) ? 1 : 0;
+                featData.refIntraAreaRatio = (double)intra4x4Count / total4x4;
+                featData.refBiPredAreaRatio = (double)biPred4x4Count / total4x4;
+            }
+            if (inter4x4Count > 0) {
+                const double meanMag = mvMagSum / inter4x4Count;
+                featData.refMvAvgMagnitude = meanMag;
+                featData.refMvMagnitudeVar = (mvMagSqSum / inter4x4Count) - (meanMag * meanMag);
+            }
+        }
+    }
+
     if( featData.yPos > 0 )
     {
         vvenc::CompArea aboveArea = cu.Y();
@@ -415,6 +495,16 @@ void MLFeaturesManager::init(const std::string& fileName, const std::string& vNa
                << "left_mt_depth;"
                << "above_mt_depth;"
                << "num_intra_neighbors4;"
+               << "left_is_mip;"
+               << "above_is_mip;"
+               << "left_isp_mode;"
+               << "above_isp_mode;"
+               << "neighbor_mean_depth;"
+               << "ref_is_intra;"
+               << "ref_intra_area_ratio;"
+               << "ref_bipred_area_ratio;"
+               << "ref_mv_avg_magnitude;"
+               << "ref_mv_magnitude_var;"
                << "relative_block_area;"
                << "delta_qp;"
                << "contrast_ratio;"
@@ -577,6 +667,16 @@ void MLFeaturesManager::finish() {
                    << data.leftMtDepth << ";"
                    << data.aboveMtDepth << ";"
                    << data.numIntraNeighbors4 << ";"
+                   << data.leftIsMIP << ";"
+                   << data.aboveIsMIP << ";"
+                   << data.leftISPMode << ";"
+                   << data.aboveISPMode << ";"
+                   << data.neighborMeanDepth << ";"
+                   << data.refIsIntra << ";"
+                   << data.refIntraAreaRatio << ";"
+                   << data.refBiPredAreaRatio << ";"
+                   << data.refMvAvgMagnitude << ";"
+                   << data.refMvMagnitudeVar << ";"
                    << data.relativeBlockArea << ";"
                    << data.deltaQP << ";"
                    << data.contrastRatio << ";"

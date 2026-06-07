@@ -89,6 +89,20 @@ struct MLFeatureData {
     int aboveMtDepth;               // MT depth of above neighbor CU
     int numIntraNeighbors4;         // Number of intra neighbors among left/above/above-left/above-right
 
+    // --- Spatial and temporal context ---
+    bool leftIsMIP;                 // Whether left neighbor uses MIP
+    bool aboveIsMIP;                // Whether above neighbor uses MIP
+    int leftISPMode;                // ISP mode used by left neighbor
+    int aboveISPMode;               // ISP mode used by above neighbor
+    double neighborMeanDepth;       // Mean depth among available 4-neighborhood
+
+    // --- Temporal context (collocated region, 4x4 motion grid)
+    int refIsIntra;                 // 1 if any collocated 4x4 in the ref region is non-inter (intra/IBC)
+    double refIntraAreaRatio;       // Ratio of non-inter (intra/IBC) 4x4 areas in collocated ref region
+    double refBiPredAreaRatio;      // Ratio of bi-predicted 4x4 areas (interDir==3) in collocated ref region
+    double refMvAvgMagnitude;       // Mean L0 motion magnitude (|hor|+|ver|) over inter 4x4 areas
+    double refMvMagnitudeVar;       // Variance of L0 motion magnitude over inter 4x4 areas (motion heterogeneity)
+
     // --- Safe derived features ---
     double relativeBlockArea;       // Block area proportion relative to the full frame
     int deltaQP;                    // Difference between block QP and encoder target QP
@@ -139,6 +153,9 @@ struct MLFeatureData {
         mpm0(-1), mpmAngularVar(0.0), numIntraCiipNeighbors(0),
         leftDepth(-1), aboveDepth(-1), leftQtDepth(-1), aboveQtDepth(-1),
         leftMtDepth(-1), aboveMtDepth(-1), numIntraNeighbors4(0),
+        leftIsMIP(false), aboveIsMIP(false), leftISPMode(0), aboveISPMode(0),
+        neighborMeanDepth(-1.0), refIsIntra(0), refIntraAreaRatio(0.0),
+        refBiPredAreaRatio(0.0), refMvAvgMagnitude(0.0), refMvMagnitudeVar(0.0),
         relativeBlockArea(0.0), deltaQP(0), contrastRatio(0.0), directionalDominance(0.0), variancePerArea(0.0),
         meanMismatch(0.0), varMismatch(0.0), coefVariation(0.0), refDominance(0.0), mpmDelta(-1),
         distCenterX(0.0), distCenterY(0.0), boundaryComplexityRatio(0.0), 
