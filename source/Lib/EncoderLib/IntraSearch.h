@@ -184,7 +184,7 @@ private:
                                         static_vector<ModeInfo, FAST_UDI_MAX_RDMODE_NUM>& RdModeList,
                                         static_vector<ModeInfo, FAST_UDI_MAX_RDMODE_NUM>& HadModeList,
                                         static_vector<double, FAST_UDI_MAX_RDMODE_NUM>& CandCostList,
-                                        static_vector<double, FAST_UDI_MAX_RDMODE_NUM>& CandHadList, CodingUnit& cu, bool testMip);
+                                        static_vector<double, FAST_UDI_MAX_RDMODE_NUM>& CandHadList, CodingUnit& cu, bool testMip, double bestCostInter );
 
   // -------------------------------------------------------------------------------------------------------------------
   // Intra search

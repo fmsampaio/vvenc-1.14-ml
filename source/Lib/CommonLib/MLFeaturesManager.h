@@ -10,12 +10,13 @@
 #include <random>
 #include "CommonDef.h"
 
+namespace vvenc {
+    class CodingStructure;
+    class CodingUnit;
+}
+
 #define ENABLE_FEATURES_EXTRACTION 1
 #define AVOID_FRAME_LEVEL_0 1
-
-#if ENABLE_FEATURES_EXTRACTION
-    #define ENABLE_IMAGE_FEATURES_EXTRACTION 1
-#endif
 
 struct MLFeatureData {
     // --- Global and position information ---
@@ -78,6 +79,15 @@ struct MLFeatureData {
     int mpm0;                       // Most probable mode (MPM0) suggested by neighbors
     double mpmAngularVar;           // Angular disagreement between neighbor suggestions
     int numIntraCiipNeighbors;      // Number of intra neighbors used for CIIP
+    
+    // --- Neighbor depths and extended context ---
+    int leftDepth;                  // Depth of left neighbor CU
+    int aboveDepth;                 // Depth of above neighbor CU
+    int leftQtDepth;                // QT depth of left neighbor CU
+    int aboveQtDepth;               // QT depth of above neighbor CU
+    int leftMtDepth;                // MT depth of left neighbor CU
+    int aboveMtDepth;               // MT depth of above neighbor CU
+    int numIntraNeighbors4;         // Number of intra neighbors among left/above/above-left/above-right
 
     // --- Safe derived features ---
     double relativeBlockArea;       // Block area proportion relative to the full frame
@@ -96,7 +106,6 @@ struct MLFeatureData {
     double splittingDensity;        // Sum of tree depths divided by a generic maximum depth
     double centerFocusWeight;       // Weight inversely proportional to distance from the center
 
-#if ENABLE_IMAGE_FEATURES_EXTRACTION
     // --- Original image ---
     double blkPixelMean;            // Mean pixel value of the original block
     double blkPixelVariance;        // Statistical variance of block pixels
@@ -116,21 +125,27 @@ struct MLFeatureData {
     // double blkPrewittGv, blkPrewittGh, blkPrewittMag, blkPrewittDir, blkPrewittRazaoGrad;
     // double blkHadDc, blkHadEnergyTotal, blkHadEnergyAc, blkHadMax, blkHadMin;
     // double blkHadTopLeft, blkHadTopRight, blkHadBottomLeft, blkHadBottomRight;
-#endif
 
     // Constructor for safe initialization
     MLFeatureData() : 
-        orientationGroup(0), aspectRatioGroup(0), interCost(-1.0), csInterHad(0.0), interHadPerPixel(-1.0),
-        availLeft(false), availAbove(false), leftIsIntra(false), aboveIsIntra(false), 
-        leftIntraDir(-1), aboveIntraDir(-1), refLineVariance(0.0), refColVariance(0.0), 
-        refLineMean(0.0), refLineRange(0.0), ctuPosInCtuX(0), ctuPosInCtuY(0), 
-        isFirstLineOfCTU(false), sliceType(0), 
-        cuMtDepth(0), cuBtDepth(0), canUseMIP(false), canUseISP(false), mpm0(-1), 
-        mpmAngularVar(0.0), numIntraCiipNeighbors(0),
+        cuQp(0), depth(0), qtDepth(0), btDepth(0), splitSeries(0),
+        orientationGroup(0), aspectRatioGroup(0),
+        interCost(-1.0), csInterHad(0.0), interHadPerPixel(-1.0),
+        availLeft(false), availAbove(false), leftIsIntra(false), aboveIsIntra(false),
+        leftIntraDir(-1), aboveIntraDir(-1),
+        refLineVariance(0.0), refColVariance(0.0), refLineMean(0.0), refLineRange(0.0),
+        ctuPosInCtuX(0), ctuPosInCtuY(0), isFirstLineOfCTU(false), sliceType(0),
+        cuMtDepth(0), cuBtDepth(0), canUseMIP(false), canUseISP(false),
+        mpm0(-1), mpmAngularVar(0.0), numIntraCiipNeighbors(0),
+        leftDepth(-1), aboveDepth(-1), leftQtDepth(-1), aboveQtDepth(-1),
+        leftMtDepth(-1), aboveMtDepth(-1), numIntraNeighbors4(0),
         relativeBlockArea(0.0), deltaQP(0), contrastRatio(0.0), directionalDominance(0.0), variancePerArea(0.0),
         meanMismatch(0.0), varMismatch(0.0), coefVariation(0.0), refDominance(0.0), mpmDelta(-1),
         distCenterX(0.0), distCenterY(0.0), boundaryComplexityRatio(0.0), 
-        splittingDensity(0.0), centerFocusWeight(0.0) {}
+        splittingDensity(0.0), centerFocusWeight(0.0),
+        blkPixelMean(0.0), blkPixelVariance(0.0), blkPixelStdDev(0.0), blkPixelSum(0.0),
+        blkVarH(0.0), blkVarV(0.0), blkStdH(0.0), blkStdV(0.0),
+        blkMin(0.0), blkMax(0.0), blkRange(0.0) {}
 };
 
 class VVENC_DECL MLFeaturesManager {
@@ -153,7 +168,13 @@ public:
     static void init(const std::string& fileName, const std::string& vName, 
                      const std::string& preset, int tQp, int bDepth, int fWidth, int fHeight);
     static void finish();
+    static MLFeatureData extractFeatures(const vvenc::CodingStructure& cs, const vvenc::CodingUnit& cu, double bestCostInter);
     static void saveFeatures(const MLFeatureData& data);
+    static uint64_t getCuKey(int poc, int x, int y, int w, int h, int qtDepth, int mtDepth);
+    static void cacheFeatures(uint64_t key, const MLFeatureData& data);
+    static MLFeatureData* getCachedFeatures(uint64_t key);
+    static void eraseCachedFeatures(uint64_t key);
+    static void clearCache();
     static void flushBuffer(); 
 
     static int getFrameWidth() { return frameWidth; }

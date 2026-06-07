@@ -48,6 +48,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "IntraSearch.h"
 #include "EncPicture.h"
 #include "CommonLib/CommonDef.h"
+#include "CommonLib/MLFeaturesManager.h"
 #include "CommonLib/Rom.h"
 #include "CommonLib/Picture.h"
 #include "CommonLib/UnitTools.h"
@@ -56,9 +57,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "CommonLib/Reshape.h"
 #include <math.h>
 #include "vvenc/vvencCfg.h"
-
-//! \ingroup EncoderLib
-//! \{
 
 namespace vvenc {
 
@@ -173,7 +171,7 @@ void IntraSearch::xEstimateLumaRdModeList(int& numModesForFullRD,
   static_vector<ModeInfo, FAST_UDI_MAX_RDMODE_NUM>& RdModeList,
   static_vector<ModeInfo, FAST_UDI_MAX_RDMODE_NUM>& HadModeList,
   static_vector<double, FAST_UDI_MAX_RDMODE_NUM>& CandCostList,
-  static_vector<double, FAST_UDI_MAX_RDMODE_NUM>& CandHadList, CodingUnit& cu, bool testMip )
+  static_vector<double, FAST_UDI_MAX_RDMODE_NUM>& CandHadList, CodingUnit& cu, bool testMip, double bestCostInter )
 {
   PROFILER_SCOPE_AND_STAGE_EXT( 1, _TPROF, P_INTRA_EST_RD_CAND, cu.cs, CH_L );
   const uint16_t intra_ctx_size = Ctx::IntraLumaMpmFlag.size() + Ctx::IntraLumaPlanarFlag.size() + Ctx::MultiRefLineIdx.size() + Ctx::ISPMode.size() + Ctx::MipFlag.size();
@@ -211,6 +209,15 @@ void IntraSearch::xEstimateLumaRdModeList(int& numModesForFullRD,
   {
     piOrg = cu.cs->getRspOrgBuf();
   }
+
+#if ENABLE_FEATURES_EXTRACTION
+  MLFeatureData featData = MLFeaturesManager::extractFeatures( *cu.cs, cu, bestCostInter );
+
+  MLFeaturesManager::cacheFeatures(
+    MLFeaturesManager::getCuKey( cu.slice->poc, cu.lx(), cu.ly(), cu.lwidth(), cu.lheight(), cu.qtDepth, cu.mtDepth ),
+    featData );
+#endif
+
   DistParam distParam    = m_pcRdCost->setDistParam( piOrg, piPred, sps.bitDepths[ CH_L ], DF_HAD_2SAD); // Use HAD (SATD) cost
 
   const int numHadCand = (testMip ? 2 : 1) * 3;
@@ -468,7 +475,7 @@ bool IntraSearch::estIntraPredLumaQT(CodingUnit &cu, Partitioner &partitioner, d
     m_ispTestedModes[0].init(0, 0, 0);
   }
 
-  xEstimateLumaRdModeList(numModesForFullRD, RdModeList, HadModeList, CandCostList, CandHadList, cu, testMip);
+  xEstimateLumaRdModeList(numModesForFullRD, RdModeList, HadModeList, CandCostList, CandHadList, cu, testMip, bestCost);
 
   CHECK( (size_t)numModesForFullRD != RdModeList.size(), "Inconsistent state!" );
 

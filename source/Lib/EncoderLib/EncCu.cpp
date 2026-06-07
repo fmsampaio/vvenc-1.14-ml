@@ -61,7 +61,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "CommonLib/SearchSpaceCounter.h"
 
 #include "CommonLib/MLFeaturesManager.h"
-#include "CommonLib/ImageFeatures.h"
 
 #include <mutex>
 #include <cmath>
@@ -502,6 +501,8 @@ void EncCu::encodeCtu( Picture* pic, int (&prevQP)[MAX_NUM_CH], uint32_t ctuXPos
   CodingStructure&     cs          = *pic->cs;
   Slice*               slice       = cs.slice;
   const PreCalcValues& pcv         = *cs.pcv;
+
+  MLFeaturesManager::clearCache();
 
 #if ENABLE_MEASURE_SEARCH_SPACE
   if( ctuXPosInCtus == 0 && ctuYPosInCtus == 0 )
@@ -1141,136 +1142,24 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
   CHECK( bestCS->cost             == MAX_DOUBLE                , "No possible encoding found" );
 
 #if ENABLE_FEATURES_EXTRACTION
-  MLFeatureData featData;
-
-  vvenc::CodingUnit* cu = bestCS->cus[0];
-
-  featData.framePoc    = slice.poc;
-  featData.frameLevel  = slice.TLayer;
-  featData.xPos        = cu->lx();
-  featData.yPos        = cu->ly();
-  featData.blockWidth  = cu->lwidth();
-  featData.blockHeight = cu->lheight();
-
-  const unsigned ctuSize = slice.pps ? slice.pps->ctuSize : 0;
-  featData.ctuPosInCtuX = ctuSize > 0 ? featData.xPos % (int)ctuSize : 0;
-  featData.ctuPosInCtuY = ctuSize > 0 ? featData.yPos % (int)ctuSize : 0;
-  featData.isFirstLineOfCTU = ( featData.ctuPosInCtuY == 0 );
-  featData.sliceType = slice.isIntra() ? 0 : ( slice.isInterP() ? 1 : 2 );
-
-  featData.blockArea = featData.blockWidth * featData.blockHeight;
-  featData.blockAreaGroup = (int)std::log2(featData.blockArea) - 4;
-
-  featData.borderContactMask = 0;
-  if (featData.xPos == 0) featData.borderContactMask += 1; // Left
-  if ((featData.xPos + featData.blockWidth) == MLFeaturesManager::getFrameWidth()) featData.borderContactMask += 2; // Right
-  if (featData.yPos == 0) featData.borderContactMask += 4; // Top
-  if ((featData.yPos + featData.blockHeight) == MLFeaturesManager::getFrameHeight()) featData.borderContactMask += 8; // Bottom
-
-  featData.isIntra     = (cu->predMode == vvenc::PredMode::MODE_INTRA);
-  featData.cuQp        = cu->qp;
-  featData.depth       = cu->depth;
-  featData.qtDepth     = cu->qtDepth;
-  featData.btDepth     = cu->btDepth;
-  featData.cuMtDepth   = cu->mtDepth;
-  featData.cuBtDepth   = cu->btDepth;
-  featData.splitSeries = (long long)cu->splitSeries; 
-
-  featData.interCost         = bestCS->cost;
-  featData.csInterHad        = 0.0;
-  if( m_modeCtrl.comprCUCtx )
+  if( isLuma( partitioner.chType ) )
   {
-    const double had = static_cast<double>( m_modeCtrl.comprCUCtx->interHad );
-    if( had < 1e18 )
+    MLFeatureData featData;
+    vvenc::CodingUnit* cu = bestCS->cus[0];
+
+    const uint64_t cuKey = MLFeaturesManager::getCuKey( slice.poc, cu->lx(), cu->ly(), cu->lwidth(), cu->lheight(), cu->qtDepth, cu->mtDepth );
+    MLFeatureData* cachedFeat = MLFeaturesManager::getCachedFeatures( cuKey );
+
+    if( cachedFeat != nullptr )
     {
-      featData.csInterHad = had;
+      featData = *cachedFeat;
+
+      featData.isIntra = ( cu->predMode == vvenc::PredMode::MODE_INTRA );
+
+      MLFeaturesManager::saveFeatures( featData );
+      MLFeaturesManager::eraseCachedFeatures( cuKey );
     }
   }
-  featData.interHadPerPixel  = featData.blockArea > 0 ? featData.csInterHad / (double)featData.blockArea : 0.0;
-
-  {
-    unsigned mpmList[NUM_LUMA_MODE] = { 0 };
-    const int numMPMs = CU::getIntraMPMs( *cu, mpmList );
-    int angularMPMs[NUM_LUMA_MODE] = { 0 };
-    int numAngularMPMs = 0;
-    for( int i = 0; i < numMPMs; i++ )
-    {
-      if( (int)mpmList[i] > DC_IDX )
-      {
-        angularMPMs[numAngularMPMs++] = (int)mpmList[i];
-      }
-    }
-
-    featData.mpm0 = numAngularMPMs > 0 ? angularMPMs[0] : ( numMPMs > 0 ? (int)mpmList[0] : -1 );
-
-    if( numAngularMPMs > 0 )
-    {
-      double mpmMean = 0.0;
-      for( int i = 0; i < numAngularMPMs; i++ )
-      {
-        mpmMean += angularMPMs[i];
-      }
-      mpmMean /= numAngularMPMs;
-
-      double mpmVar = 0.0;
-      for( int i = 0; i < numAngularMPMs; i++ )
-      {
-        const double diff = angularMPMs[i] - mpmMean;
-        mpmVar += diff * diff;
-      }
-      featData.mpmAngularVar = mpmVar / numAngularMPMs;
-    }
-    else
-    {
-      featData.mpmAngularVar = 0.0;
-    }
-  }
-
-  const CodingUnit* leftCu  = cu->cs->getCURestricted( cu->lumaPos().offset( -1,  0 ), *cu, CH_L );
-  const CodingUnit* aboveCu = cu->cs->getCURestricted( cu->lumaPos().offset(  0, -1 ), *cu, CH_L );
-
-  featData.availLeft      = leftCu  != nullptr;
-  featData.availAbove     = aboveCu != nullptr;
-  featData.leftIsIntra    = leftCu  != nullptr && leftCu->predMode  == vvenc::PredMode::MODE_INTRA;
-  featData.aboveIsIntra   = aboveCu != nullptr && aboveCu->predMode == vvenc::PredMode::MODE_INTRA;
-  featData.leftIntraDir   = leftCu  != nullptr ? leftCu->intraDir[CH_L] : -1;
-  featData.aboveIntraDir  = aboveCu != nullptr ? aboveCu->intraDir[CH_L] : -1;
-
-  featData.numIntraCiipNeighbors = (featData.leftIsIntra ? 1 : 0) + (featData.aboveIsIntra ? 1 : 0);
-
-  featData.canUseMIP = slice.sps->MIP && cu->lwidth() <= slice.sps->getMaxTbSize() && cu->lheight() <= slice.sps->getMaxTbSize();
-  featData.canUseISP = slice.sps->ISP && CU::canUseISP( cu->lwidth(), cu->lheight(), slice.sps->getMaxTbSize() );
-
-  if( featData.yPos > 0 )
-  {
-    CompArea aboveArea = cu->Y();
-    aboveArea.y -= 1;
-    aboveArea.height = 1;
-    const BufferStats aboveStats = calcBufferStats( bestCS->picture->getRecoBuf( aboveArea ) );
-    featData.refLineMean = aboveStats.mean;
-    featData.refLineVariance = aboveStats.variance;
-    featData.refLineRange = aboveStats.range;
-  }
-
-  if( featData.xPos > 0 )
-  {
-    CompArea leftArea = cu->Y();
-    leftArea.x -= 1;
-    leftArea.width = 1;
-    const BufferStats leftStats = calcBufferStats( bestCS->picture->getRecoBuf( leftArea ) );
-    featData.refColVariance = leftStats.variance;
-  }
-
-#if ENABLE_IMAGE_FEATURES_EXTRACTION == 1
-  vvenc::CPelBuf orgBuf = bestCS->getOrgBuf(cu->Y());
-  
-  if (computeImageFeatures(orgBuf.buf, orgBuf.stride, orgBuf.width, orgBuf.height, featData)) {
-      MLFeaturesManager::saveFeatures(featData);
-  }
-#else
-  MLFeaturesManager::saveFeatures(featData);
-#endif
-
 #endif
 }
 
