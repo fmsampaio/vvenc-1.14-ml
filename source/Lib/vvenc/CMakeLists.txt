@@ -217,6 +217,3 @@ set_target_properties( ${LIB_NAME} PROPERTIES
                                    MACOSX_RPATH FALSE
                                    FOLDER lib )
 
-find_package(OpenCV REQUIRED)
-target_include_directories( ${LIB_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS} )
-target_link_libraries( ${LIB_NAME} PRIVATE ${OpenCV_LIBS} )
