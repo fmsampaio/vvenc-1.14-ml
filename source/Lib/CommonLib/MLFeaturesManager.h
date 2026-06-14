@@ -30,8 +30,13 @@ struct MLFeatureData {
     int blockAreaGroup;             // Block area group (log2 of the largest dimension)
     int borderContactMask;          // Mask indicating whether the block touches a frame border
     
-    // --- Target label ---
-    bool isIntra;                   // Whether the block is coded in intra mode (true) or inter mode (false)
+    // --- Target labels ---
+    bool isIntra;                   // Split-aware target: the best NON-split mode for this block was intra
+                                    // (true even if the block was later split). "O split foi intra ou nao?"
+    int finalDecision;              // Final decision for the partition-tree node. When the node is kept as a
+                                    // single CU spanning the full area, holds the CU prediction mode
+                                    // (0=INTER, 1=INTRA, 2=IBC, 3=PLT); 4=SPLIT when the block is divided.
+                                    // Derive IntraKept = (finalDecision == 1); wasSplit = (finalDecision == 4).
     
     // --- CU coding information ---
     int cuQp;                       // Local Quantization Parameter (QP) of the CU
@@ -141,7 +146,8 @@ struct MLFeatureData {
     // double blkHadTopLeft, blkHadTopRight, blkHadBottomLeft, blkHadBottomRight;
 
     // Constructor for safe initialization
-    MLFeatureData() : 
+    MLFeatureData() :
+        isIntra(false), finalDecision(-1),
         cuQp(0), depth(0), qtDepth(0), btDepth(0), splitSeries(0),
         orientationGroup(0), aspectRatioGroup(0),
         interCost(-1.0), csInterHad(0.0), interHadPerPixel(-1.0),
@@ -192,7 +198,6 @@ public:
     static MLFeatureData* getCachedFeatures(uint64_t key);
     static void eraseCachedFeatures(uint64_t key);
     static void clearCache();
-    static void flushBuffer(); 
 
     static int getFrameWidth() { return frameWidth; }
     static int getFrameHeight() { return frameHeight; }

@@ -18,10 +18,8 @@ int MLFeaturesManager::frameHeight;
 std::unordered_map<int, std::vector<MLFeatureData>> MLFeaturesManager::reservoirs;
 std::unordered_map<int, uint64_t> MLFeaturesManager::seenCount;
 
-thread_local std::vector<MLFeatureData> localBuffer;
 thread_local std::unordered_map<uint64_t, MLFeatureData> featureCache;
 thread_local std::mt19937 localRng(std::random_device{}());
-const size_t MAX_BUFFER_SIZE = 5000;
 
 namespace
 {
@@ -457,6 +455,7 @@ void MLFeaturesManager::init(const std::string& fileName, const std::string& vNa
                << "FrameLevel;"
                << "BorderContactMask;"
                << "IsIntra;"
+               << "FinalDecision;"
                << "CU_QP;"
                << "Depth;"
                << "QTDepth;"
@@ -567,43 +566,25 @@ void MLFeaturesManager::saveFeatures(const MLFeatureData& data) {
         return;
 #endif
 
-    localBuffer.push_back(data);
-    if (localBuffer.size() >= MAX_BUFFER_SIZE) {
-        flushBuffer();
-    }
-}
-
-void MLFeaturesManager::flushBuffer() {
-    if (localBuffer.empty()) return;
-
     std::lock_guard<std::mutex> lock(writeMutex);
 
-    for (const auto& data : localBuffer) {
-        int isIntraVal = data.isIntra ? 1 : 0;
-        int classKey = (data.frameLevel * 2) + isIntraVal; 
+    const int classKey = (data.frameLevel * 2) + (data.isIntra ? 1 : 0);
+    uint64_t& count = seenCount[classKey];
+    count++;
 
-        uint64_t& count = seenCount[classKey];
-        count++;
-
-        auto& reservoir = reservoirs[classKey];
-
-        if (reservoir.size() < RESERVOIR_SIZE) {
-            reservoir.push_back(data);
-        } else {
-            std::uniform_int_distribution<uint64_t> dist(0, count - 1);
-            uint64_t j = dist(localRng);
-
-            if (j < RESERVOIR_SIZE) {
-                reservoir[j] = data;
-            }
+    auto& reservoir = reservoirs[classKey];
+    if (reservoir.size() < RESERVOIR_SIZE) {
+        reservoir.push_back(data);
+    } else {
+        std::uniform_int_distribution<uint64_t> dist(0, count - 1);
+        const uint64_t j = dist(localRng);
+        if (j < RESERVOIR_SIZE) {
+            reservoir[j] = data;
         }
     }
-    localBuffer.clear();
 }
 
 void MLFeaturesManager::finish() {
-    flushBuffer();
-
     std::lock_guard<std::mutex> lock(writeMutex);
 
     if (!featFp.is_open())
@@ -629,6 +610,7 @@ void MLFeaturesManager::finish() {
                    << data.frameLevel << ";"
                    << data.borderContactMask << ";"
                    << data.isIntra << ";"
+                   << data.finalDecision << ";"
                    << data.cuQp << ";"
                    << data.depth << ";"
                    << data.qtDepth << ";"

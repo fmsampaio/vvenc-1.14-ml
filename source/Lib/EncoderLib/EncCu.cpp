@@ -1018,6 +1018,22 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
       }
     } //boundary
 
+#if ENABLE_FEATURES_EXTRACTION
+    // Capture the best NON-split prediction mode for this exact geometry, BEFORE any
+    // split mode is tested. This is the split-aware label (isIntra): even if the block
+    // is later split, we record whether its best whole-block mode was intra.
+    if( isLuma( partitioner.chType ) && !bestCS->cus.empty() && bestCS->cost != MAX_DOUBLE )
+    {
+      const uint64_t cuKey = MLFeaturesManager::getCuKey(
+        slice.poc, bestCS->area.lx(), bestCS->area.ly(), bestCS->area.lwidth(), bestCS->area.lheight(), 0, 0 );
+      MLFeatureData* cachedFeat = MLFeaturesManager::getCachedFeatures( cuKey );
+      if( cachedFeat != nullptr )
+      {
+        cachedFeat->isIntra = ( bestCS->cus[0]->predMode == vvenc::PredMode::MODE_INTRA );
+      }
+    }
+#endif
+
     if( ( m_pcEncCfg->m_IntraPeriod == 1 ) && ( partitioner.chType == CH_C ) )
     {
       xCheckFastCuChromaSplitting( tempCS, bestCS, partitioner, *m_modeCtrl.comprCUCtx );
@@ -1144,17 +1160,25 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
 #if ENABLE_FEATURES_EXTRACTION
   if( isLuma( partitioner.chType ) )
   {
-    MLFeatureData featData;
-    vvenc::CodingUnit* cu = bestCS->cus[0];
-
-    const uint64_t cuKey = MLFeaturesManager::getCuKey( slice.poc, cu->lx(), cu->ly(), cu->lwidth(), cu->lheight(), cu->qtDepth, cu->mtDepth );
+    // Look up the cache entry for THIS node's area (the geometry that intra search
+    // tested), not for bestCS->cus[0]. On a split node cus[0] is the first child
+    // (already saved/erased in its own recursion), so keying on it loses every
+    // intra candidate that ended up discarded by a split.
+    const uint64_t cuKey = MLFeaturesManager::getCuKey(
+      slice.poc, bestCS->area.lx(), bestCS->area.ly(), bestCS->area.lwidth(), bestCS->area.lheight(), 0, 0 );
     MLFeatureData* cachedFeat = MLFeaturesManager::getCachedFeatures( cuKey );
 
     if( cachedFeat != nullptr )
     {
-      featData = *cachedFeat;
-
-      featData.isIntra = ( cu->predMode == vvenc::PredMode::MODE_INTRA );
+      MLFeatureData featData = *cachedFeat;
+      // featData.isIntra was set at the beforeSplit point (best non-split mode). Do NOT
+      // overwrite it here. finalDecision = the partition-tree node's final decision: the
+      // CU predMode (0=INTER,1=INTRA,2=IBC,3=PLT) when kept as a single CU spanning the
+      // full node area, or 4=SPLIT when the block was divided. IntraKept derives as
+      // finalDecision==1.
+      const bool keptWhole = ( bestCS->cus.size() == 1 )
+                          && ( bestCS->cus[0]->Y() == bestCS->area.Y() );
+      featData.finalDecision = keptWhole ? (int) bestCS->cus[0]->predMode : 4;
 
       MLFeaturesManager::saveFeatures( featData );
       MLFeaturesManager::eraseCachedFeatures( cuKey );
