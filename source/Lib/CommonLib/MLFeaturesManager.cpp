@@ -568,33 +568,27 @@ void MLFeaturesManager::saveFeatures(const MLFeatureData& data) {
 
     std::lock_guard<std::mutex> lock(writeMutex);
 
+#if USE_RESERVOIR == 1
     const int classKey = (data.frameLevel * 2) + (data.isIntra ? 1 : 0);
-    uint64_t& count = seenCount[classKey];
-    count++;
-
-    auto& reservoir = reservoirs[classKey];
-    if (reservoir.size() < RESERVOIR_SIZE) {
-        reservoir.push_back(data);
+    seenCount[classKey]++;
+    
+    if (reservoirs[classKey].size() < RESERVOIR_SIZE) {
+        reservoirs[classKey].push_back(data);
     } else {
-        std::uniform_int_distribution<uint64_t> dist(0, count - 1);
-        const uint64_t j = dist(localRng);
+        std::uniform_int_distribution<uint64_t> dist(0, seenCount[classKey] - 1);
+        uint64_t j = dist(localRng);
         if (j < RESERVOIR_SIZE) {
-            reservoir[j] = data;
+            reservoirs[classKey][j] = data;
         }
     }
+#else
+    writeRow(data);
+#endif
 }
 
-void MLFeaturesManager::finish() {
-    std::lock_guard<std::mutex> lock(writeMutex);
-
-    if (!featFp.is_open())
-        return;
-
-    for (auto& entry : reservoirs) {
-        auto& reservoir = entry.second;
-        
-        for (const auto& data : reservoir) {
-            featFp << videoName << ";"
+void MLFeaturesManager::writeRow(const MLFeatureData& data) {
+    if (featFp.is_open()) {
+        featFp << videoName << ";"
                    << encoderPreset << ";"
                    << targetQP << ";"
                    << bitDepth << ";"
@@ -710,6 +704,17 @@ void MLFeaturesManager::finish() {
                    // << ";" << data.blkHadBottomLeft
                    // << ";" << data.blkHadBottomRight;
             featFp << "\n";
+    }
+}
+
+void MLFeaturesManager::finish() {
+    std::lock_guard<std::mutex> lock(writeMutex);
+
+    if (featFp.is_open()) {
+        for (const auto& res : reservoirs) {
+            for (const auto& data : res.second) {
+                writeRow(data);
+            }
         }
     }
 

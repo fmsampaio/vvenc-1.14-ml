@@ -17,6 +17,7 @@ namespace vvenc {
 
 #define ENABLE_FEATURES_EXTRACTION 1
 #define AVOID_FRAME_LEVEL_0 1
+#define USE_RESERVOIR 1                 // 0 = turns off reservoir (records everything)
 
 struct MLFeatureData {
     // --- Global and position information ---
@@ -186,6 +187,8 @@ private:
     static constexpr size_t RESERVOIR_SIZE = 5000; // samples per (frameLevel × intra/inter) class
     static std::unordered_map<int, std::vector<MLFeatureData>> reservoirs; // key = classId (frameLevel × intra/inter)
     static std::unordered_map<int, uint64_t> seenCount;
+
+    static void writeRow(const MLFeatureData& data);
 
 public:
     static void init(const std::string& fileName, const std::string& vName, 
