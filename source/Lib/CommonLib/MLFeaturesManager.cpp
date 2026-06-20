@@ -4,6 +4,7 @@
 #include "UnitTools.h"
 #include "Picture.h"
 #include "Reshape.h"
+#include "MLFeaturesManager.h"
 
 std::ofstream MLFeaturesManager::featFp;
 std::mutex MLFeaturesManager::writeMutex;
@@ -20,6 +21,11 @@ std::unordered_map<int, uint64_t> MLFeaturesManager::seenCount;
 
 thread_local std::unordered_map<uint64_t, MLFeatureData> featureCache;
 thread_local std::mt19937 localRng(std::random_device{}());
+
+std::atomic<uint64_t> MLFeaturesManager::totalBlocksCount(0);
+std::atomic<uint64_t> MLFeaturesManager::intraBlocksEvaluatedCount(0);
+std::atomic<uint64_t> MLFeaturesManager::intraBlocksKeptCount(0);
+std::atomic<uint64_t> MLFeaturesManager::intraBlocksSplitCount(0);
 
 namespace
 {
@@ -707,6 +713,51 @@ void MLFeaturesManager::writeRow(const MLFeatureData& data) {
     }
 }
 
+void MLFeaturesManager::printOptimizationPotential() {
+    uint64_t total = totalBlocksCount.load();
+    uint64_t intraEval = intraBlocksEvaluatedCount.load();
+    uint64_t intraKept = intraBlocksKeptCount.load();
+    uint64_t intraSplit = intraBlocksSplitCount.load();
+
+    std::cout << "\n=======================================================" << std::endl;
+    std::cout << "          OPTIMIZATION POTENTIAL REPORT                " << std::endl;
+    std::cout << "=======================================================" << std::endl;
+    std::cout << "Total CUs evaluated globally: " << total << std::endl;
+    std::cout << "Total blocks processed by the ML model (Intra Tested): " << intraEval << std::endl;
+
+    if (total > 0 && intraEval > 0) {
+        double percentIntraTested = (double)intraEval / total * 100.0;
+
+        // Outcome of blocks that entered the model
+        uint64_t intraInterOther = intraEval - intraKept - intraSplit; // Remaining blocks ended up as Inter (without split)
+
+        double pctKept = (double)intraKept / intraEval * 100.0;
+        double pctSplit = (double)intraSplit / intraEval * 100.0;
+        double pctInter = (double)intraInterOther / intraEval * 100.0;
+
+        double pctDiscarded = 100.0 - pctKept;
+        double pctFinalIntra = (double)intraKept / total * 100.0;
+
+        std::cout << "Workload sent to the ML model: " << percentIntraTested
+                  << "% of the encoder workload" << std::endl;
+        std::cout << "-------------------------------------------------------" << std::endl;
+        std::cout << "OUTCOME OF BLOCKS AFTER PASSING THROUGH THE ML MODEL:" << std::endl;
+        std::cout << " - Kept as INTRA (IntraKept=1)          : "
+                  << intraKept << " (" << pctKept << "%)" << std::endl;
+        std::cout << " - Split into smaller blocks (Split)   : "
+                  << intraSplit << " (" << pctSplit << "%)" << std::endl;
+        std::cout << " - Kept, but Inter was selected        : "
+                  << intraInterOther << " (" << pctInter << "%)" << std::endl;
+        std::cout << "-------------------------------------------------------" << std::endl;
+        std::cout << "TOTAL WASTED INTRA EVALUATIONS (Tested but discarded): "
+                  << pctDiscarded << "%" << std::endl;
+        std::cout << "Final INTRA proportion (Kept / Global Total): "
+                  << pctFinalIntra << "%" << std::endl;
+    }
+
+    std::cout << "=======================================================\n" << std::endl;
+}
+
 void MLFeaturesManager::finish() {
     std::lock_guard<std::mutex> lock(writeMutex);
 
@@ -719,6 +770,8 @@ void MLFeaturesManager::finish() {
     }
 
     featFp.close();
+
+    printOptimizationPotential();
     
     reservoirs.clear();
     seenCount.clear();

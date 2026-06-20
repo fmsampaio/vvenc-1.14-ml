@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <random>
 #include "CommonDef.h"
+#include <atomic>
 
 namespace vvenc {
     class CodingStructure;
@@ -205,4 +206,10 @@ public:
     static int getFrameWidth() { return frameWidth; }
     static int getFrameHeight() { return frameHeight; }
     static int getTargetQP() { return targetQP; }
+
+    static std::atomic<uint64_t> totalBlocksCount;
+    static std::atomic<uint64_t> intraBlocksEvaluatedCount;
+    static std::atomic<uint64_t> intraBlocksKeptCount;
+    static std::atomic<uint64_t> intraBlocksSplitCount;
+    static void printOptimizationPotential();
 };

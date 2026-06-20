@@ -763,6 +763,8 @@ void xCheckFastCuChromaSplitting( CodingStructure*& tempCS, CodingStructure*& be
 
 void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Partitioner& partitioner )
 {
+  MLFeaturesManager::totalBlocksCount++;
+  
   const Area& lumaArea = tempCS->area.Y();
 
   Slice&   slice      = *tempCS->slice;
@@ -1178,7 +1180,15 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
       // finalDecision==1.
       const bool keptWhole = ( bestCS->cus.size() == 1 )
                           && ( bestCS->cus[0]->Y() == bestCS->area.Y() );
+                          
       featData.finalDecision = keptWhole ? (int) bestCS->cus[0]->predMode : 4;
+
+      if (keptWhole && bestCS->cus[0]->predMode == MODE_INTRA) {
+          MLFeaturesManager::intraBlocksKeptCount++;
+      } 
+      else if (!keptWhole) {
+          MLFeaturesManager::intraBlocksSplitCount++;
+      }
 
       MLFeaturesManager::saveFeatures( featData );
       MLFeaturesManager::eraseCachedFeatures( cuKey );

@@ -210,6 +210,8 @@ void IntraSearch::xEstimateLumaRdModeList(int& numModesForFullRD,
     piOrg = cu.cs->getRspOrgBuf();
   }
 
+  MLFeaturesManager::intraBlocksEvaluatedCount++;
+
 #if ENABLE_FEATURES_EXTRACTION
   MLFeatureData featData = MLFeaturesManager::extractFeatures( *cu.cs, cu, bestCostInter );
 
