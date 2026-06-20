@@ -39,6 +39,7 @@ struct MLFeatureData {
                                     // single CU spanning the full area, holds the CU prediction mode
                                     // (0=INTER, 1=INTRA, 2=IBC, 3=PLT); 4=SPLIT when the block is divided.
                                     // Derive IntraKept = (finalDecision == 1); wasSplit = (finalDecision == 4).
+    bool isSplit;                   // True if the block was split (finalDecision == 4)
     
     // --- CU coding information ---
     int cuQp;                       // Local Quantization Parameter (QP) of the CU
@@ -149,7 +150,7 @@ struct MLFeatureData {
 
     // Constructor for safe initialization
     MLFeatureData() :
-        isIntra(false), finalDecision(-1),
+        isIntra(false), finalDecision(-1), isSplit(false),
         cuQp(0), depth(0), qtDepth(0), btDepth(0), splitSeries(0),
         orientationGroup(0), aspectRatioGroup(0),
         interCost(-1.0), csInterHad(0.0), interHadPerPixel(-1.0),

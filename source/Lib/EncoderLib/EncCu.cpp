@@ -1182,6 +1182,7 @@ void EncCu::xCompressCU( CodingStructure*& tempCS, CodingStructure*& bestCS, Par
                           && ( bestCS->cus[0]->Y() == bestCS->area.Y() );
                           
       featData.finalDecision = keptWhole ? (int) bestCS->cus[0]->predMode : 4;
+      featData.isSplit = !keptWhole;
 
       if (keptWhole && bestCS->cus[0]->predMode == MODE_INTRA) {
           MLFeaturesManager::intraBlocksKeptCount++;
