@@ -210,7 +210,11 @@ void IntraSearch::xEstimateLumaRdModeList(int& numModesForFullRD,
     piOrg = cu.cs->getRspOrgBuf();
   }
 
-  MLFeaturesManager::intraBlocksEvaluatedCount++;
+  MLFeaturesManager::intraLumaEvaluated++;
+  MLFeaturesManager::intraTotalEvaluated++;
+  if (cu.slice->TLayer == 0) {
+      MLFeaturesManager::intraLumaFrameLevel0++;
+  }
 
 #if ENABLE_FEATURES_EXTRACTION
   MLFeatureData featData = MLFeaturesManager::extractFeatures( *cu.cs, cu, bestCostInter );
@@ -739,6 +743,9 @@ void IntraSearch::estIntraPredChromaQT( CodingUnit& cu, Partitioner& partitioner
   double bestCostSoFar  = maxCostAllowed;
   const uint32_t numberValidComponents = getNumberValidComponents( cu.chromaFormat );
   const bool useBDPCM   = cs.picture->useBDPCM;
+
+  MLFeaturesManager::intraChromaEvaluated++;
+  MLFeaturesManager::intraTotalEvaluated++;
 
   uint32_t   uiBestMode = 0;
   Distortion uiBestDist = 0;

@@ -140,13 +140,6 @@ struct MLFeatureData {
     double blkMin;                  // Minimum pixel value inside the block
     double blkMax;                  // Maximum pixel value inside the block
     double blkRange;                // Difference between max and min pixel values
-    
-    // Removed complex features
-    // double blkLaplacianVar, blkEntropy;
-    // double blkSobelGv, blkSobelGh, blkSobelMag, blkSobelDir, blkSobelRazaoGrad;
-    // double blkPrewittGv, blkPrewittGh, blkPrewittMag, blkPrewittDir, blkPrewittRazaoGrad;
-    // double blkHadDc, blkHadEnergyTotal, blkHadEnergyAc, blkHadMax, blkHadMin;
-    // double blkHadTopLeft, blkHadTopRight, blkHadBottomLeft, blkHadBottomRight;
 
     // Constructor for safe initialization
     MLFeatureData() :
@@ -208,9 +201,15 @@ public:
     static int getFrameHeight() { return frameHeight; }
     static int getTargetQP() { return targetQP; }
 
-    static std::atomic<uint64_t> totalBlocksCount;
-    static std::atomic<uint64_t> intraBlocksEvaluatedCount;
-    static std::atomic<uint64_t> intraBlocksKeptCount;
-    static std::atomic<uint64_t> intraBlocksSplitCount;
+    static std::atomic<uint64_t> globalTotalBlocks;
+    static std::atomic<uint64_t> intraLumaEvaluated;
+    static std::atomic<uint64_t> intraChromaEvaluated;
+    static std::atomic<uint64_t> intraTotalEvaluated;
+    static std::atomic<uint64_t> intraBlocksKept;
+    static std::atomic<uint64_t> blocksSplit;
+    static std::atomic<uint64_t> blocksOther;
+    static std::atomic<uint64_t> datasetSavedRows;
+    static std::atomic<uint64_t> intraLumaFrameLevel0;
+
     static void printOptimizationPotential();
 };

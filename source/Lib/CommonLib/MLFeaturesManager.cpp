@@ -4,7 +4,6 @@
 #include "UnitTools.h"
 #include "Picture.h"
 #include "Reshape.h"
-#include "MLFeaturesManager.h"
 
 std::ofstream MLFeaturesManager::featFp;
 std::mutex MLFeaturesManager::writeMutex;
@@ -22,10 +21,16 @@ std::unordered_map<int, uint64_t> MLFeaturesManager::seenCount;
 thread_local std::unordered_map<uint64_t, MLFeatureData> featureCache;
 thread_local std::mt19937 localRng(std::random_device{}());
 
-std::atomic<uint64_t> MLFeaturesManager::totalBlocksCount(0);
-std::atomic<uint64_t> MLFeaturesManager::intraBlocksEvaluatedCount(0);
-std::atomic<uint64_t> MLFeaturesManager::intraBlocksKeptCount(0);
-std::atomic<uint64_t> MLFeaturesManager::intraBlocksSplitCount(0);
+// --- INICIALIZAÇÃO DOS NOVOS CONTADORES ---
+std::atomic<uint64_t> MLFeaturesManager::globalTotalBlocks(0);
+std::atomic<uint64_t> MLFeaturesManager::intraLumaEvaluated(0);
+std::atomic<uint64_t> MLFeaturesManager::intraChromaEvaluated(0);
+std::atomic<uint64_t> MLFeaturesManager::intraTotalEvaluated(0);
+std::atomic<uint64_t> MLFeaturesManager::intraBlocksKept(0);
+std::atomic<uint64_t> MLFeaturesManager::blocksSplit(0);
+std::atomic<uint64_t> MLFeaturesManager::blocksOther(0);
+std::atomic<uint64_t> MLFeaturesManager::datasetSavedRows(0);
+std::atomic<uint64_t> MLFeaturesManager::intraLumaFrameLevel0(0);
 
 namespace
 {
@@ -539,28 +544,6 @@ void MLFeaturesManager::init(const std::string& fileName, const std::string& vNa
                << "blk_min;"
                << "blk_max;"
                << "blk_range";
-               // Removed complex features
-               // << ";" << "blk_laplacian_var"
-               // << ";" << "blk_entropy"
-               // << ";" << "blk_sobel_gv"
-               // << ";" << "blk_sobel_gh"
-               // << ";" << "blk_sobel_mag"
-               // << ";" << "blk_sobel_dir"
-               // << ";" << "blk_sobel_razao_grad"
-               // << ";" << "blk_prewitt_gv"
-               // << ";" << "blk_prewitt_gh"
-               // << ";" << "blk_prewitt_mag"
-               // << ";" << "blk_prewitt_dir"
-               // << ";" << "blk_prewitt_razao_grad"
-               // << ";" << "blk_had_dc"
-               // << ";" << "blk_had_energy_total"
-               // << ";" << "blk_had_energy_ac"
-               // << ";" << "blk_had_max"
-               // << ";" << "blk_had_min"
-               // << ";" << "blk_had_topleft"
-               // << ";" << "blk_had_topright"
-               // << ";" << "blk_had_bottomleft"
-               // << ";" << "blk_had_bottomright";
         featFp << "\n";
     } else {
         std::cerr << "[Error] MLFeaturesManager: Could not open file " << fileName << std::endl;
@@ -572,6 +555,8 @@ void MLFeaturesManager::saveFeatures(const MLFeatureData& data) {
     if (data.frameLevel == 0)
         return;
 #endif
+
+    MLFeaturesManager::datasetSavedRows++;
 
     std::lock_guard<std::mutex> lock(writeMutex);
 
@@ -689,72 +674,42 @@ void MLFeaturesManager::writeRow(const MLFeatureData& data) {
                    << data.blkMin << ";"
                    << data.blkMax << ";"
                    << data.blkRange;
-                   // Removed complex features
-                   // << ";" << data.blkLaplacianVar
-                   // << ";" << data.blkEntropy
-                   // << ";" << data.blkSobelGv
-                   // << ";" << data.blkSobelGh
-                   // << ";" << data.blkSobelMag
-                   // << ";" << data.blkSobelDir
-                   // << ";" << data.blkSobelRazaoGrad
-                   // << ";" << data.blkPrewittGv
-                   // << ";" << data.blkPrewittGh
-                   // << ";" << data.blkPrewittMag
-                   // << ";" << data.blkPrewittDir
-                   // << ";" << data.blkPrewittRazaoGrad
-                   // << ";" << data.blkHadDc
-                   // << ";" << data.blkHadEnergyTotal
-                   // << ";" << data.blkHadEnergyAc
-                   // << ";" << data.blkHadMax
-                   // << ";" << data.blkHadMin
-                   // << ";" << data.blkHadTopLeft
-                   // << ";" << data.blkHadTopRight
-                   // << ";" << data.blkHadBottomLeft
-                   // << ";" << data.blkHadBottomRight;
             featFp << "\n";
     }
 }
 
 void MLFeaturesManager::printOptimizationPotential() {
-    uint64_t total = totalBlocksCount.load();
-    uint64_t intraEval = intraBlocksEvaluatedCount.load();
-    uint64_t intraKept = intraBlocksKeptCount.load();
-    uint64_t intraSplit = intraBlocksSplitCount.load();
+    uint64_t globalTotal = globalTotalBlocks.load();
+    uint64_t intraLuma   = intraLumaEvaluated.load();
+    uint64_t intraChroma = intraChromaEvaluated.load();
+    uint64_t intraTotal  = intraTotalEvaluated.load();
+    uint64_t intraKept   = intraBlocksKept.load();
+    uint64_t split       = blocksSplit.load();
+    uint64_t other       = blocksOther.load();
+    uint64_t savedRows   = datasetSavedRows.load();
+    uint64_t lumaFL0     = intraLumaFrameLevel0.load();
 
     std::cout << "\n=======================================================" << std::endl;
-    std::cout << "          OPTIMIZATION POTENTIAL REPORT                " << std::endl;
+    std::cout << "          DATASET & OPTIMIZATION REPORT                " << std::endl;
     std::cout << "=======================================================" << std::endl;
-    std::cout << "Total CUs evaluated globally: " << total << std::endl;
-    std::cout << "Total blocks processed by the ML model (Intra Tested): " << intraEval << std::endl;
+    std::cout << "[1] Global Total Blocks Evaluated      : " << globalTotal << std::endl;
+    std::cout << "[2] Total Intra Blocks Evaluated       : " << intraTotal << std::endl;
+    std::cout << "    |- Intra Luma Evaluated            : " << intraLuma << std::endl;
+    std::cout << "    |- Intra Chroma Evaluated          : " << intraChroma << std::endl;
+    std::cout << "[3] Intra Luma at Frame Level 0        : " << lumaFL0 << " (Ignored in dataset)" << std::endl;
 
-    if (total > 0 && intraEval > 0) {
-        double percentIntraTested = (double)intraEval / total * 100.0;
-
-        // Outcome of blocks that entered the model
-        uint64_t intraInterOther = intraEval - intraKept - intraSplit; // Remaining blocks ended up as Inter (without split)
-
-        double pctKept = (double)intraKept / intraEval * 100.0;
-        double pctSplit = (double)intraSplit / intraEval * 100.0;
-        double pctInter = (double)intraInterOther / intraEval * 100.0;
-
-        double pctDiscarded = 100.0 - pctKept;
-        double pctFinalIntra = (double)intraKept / total * 100.0;
-
-        std::cout << "Workload sent to the ML model: " << percentIntraTested
-                  << "% of the encoder workload" << std::endl;
+    if (globalTotal > 0 && intraTotal > 0) {
+        double percentIntraTested = (double)intraTotal / globalTotal * 100.0;
         std::cout << "-------------------------------------------------------" << std::endl;
-        std::cout << "OUTCOME OF BLOCKS AFTER PASSING THROUGH THE ML MODEL:" << std::endl;
-        std::cout << " - Kept as INTRA (IntraKept=1)          : "
-                  << intraKept << " (" << pctKept << "%)" << std::endl;
-        std::cout << " - Split into smaller blocks (Split)   : "
-                  << intraSplit << " (" << pctSplit << "%)" << std::endl;
-        std::cout << " - Kept, but Inter was selected        : "
-                  << intraInterOther << " (" << pctInter << "%)" << std::endl;
+        std::cout << "FINAL DECISION FOR ALL BLOCKS:" << std::endl;
+        std::cout << " - Intra Kept Blocks                   : " << intraKept << std::endl;
+        std::cout << " - Split Blocks                        : " << split << std::endl;
+        std::cout << " - Other Blocks (Inter/Skip/etc)       : " << other << std::endl;
+        
         std::cout << "-------------------------------------------------------" << std::endl;
-        std::cout << "TOTAL WASTED INTRA EVALUATIONS (Tested but discarded): "
-                  << pctDiscarded << "%" << std::endl;
-        std::cout << "Final INTRA proportion (Kept / Global Total): "
-                  << pctFinalIntra << "%" << std::endl;
+        std::cout << "DATASET STATISTICS:" << std::endl;
+        std::cout << " - Dataset Saved Rows                  : " << savedRows << std::endl;
+        std::cout << "\nProportion of Intra tests / Global   : " << percentIntraTested << "%" << std::endl;
     }
 
     std::cout << "=======================================================\n" << std::endl;
